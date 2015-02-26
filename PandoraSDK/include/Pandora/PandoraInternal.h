@@ -11,10 +11,16 @@
 #include <iostream>
 #include <map>
 #include <set>
-#include <unordered_set>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#if __cplusplus > 199711L
+    #include <unordered_set>
+    #define MANAGED_CONTAINER unordered_set
+#else
+    #define MANAGED_CONTAINER set
+#endif
 
 #include <stdint.h>
 
@@ -95,12 +101,12 @@ inline bool StringToType(const std::string &s, T &t)
 }
 
 template <>
-inline bool StringToType(const std::string &s, void *&t)
+inline bool StringToType(const std::string &s, const void *&t)
 {
     uintptr_t address;
     std::istringstream iss(s);
     iss >> std::hex >> address;
-    t = reinterpret_cast<void*>(address);
+    t = reinterpret_cast<const void*>(address);
     return true;
 }
 
@@ -119,7 +125,7 @@ inline std::string TypeToString(const T &t)
 }
 
 template <>
-inline std::string TypeToString(void *const &t)
+inline std::string TypeToString(const void *const &t)
 {
     const uintptr_t address(reinterpret_cast<uintptr_t>(t));
     return TypeToString(address);
@@ -148,23 +154,23 @@ inline bool PointerLessThan<T>::operator()(const T *lhs, const T *rhs) const
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-typedef std::unordered_set<CaloHit *> CaloHitList;
-typedef std::unordered_set<Cluster *> ClusterList;
-typedef std::unordered_set<DetectorGap *> DetectorGapList;
-typedef std::unordered_set<MCParticle *> MCParticleList;
-typedef std::unordered_set<ParticleFlowObject *> ParticleFlowObjectList;
-typedef std::unordered_set<ParticleFlowObject *> PfoList;
-typedef std::unordered_set<Track *> TrackList;
-typedef std::unordered_set<Vertex *> VertexList;
+typedef std::MANAGED_CONTAINER<const CaloHit *> CaloHitList;
+typedef std::MANAGED_CONTAINER<const Cluster *> ClusterList;
+typedef std::MANAGED_CONTAINER<const DetectorGap *> DetectorGapList;
+typedef std::MANAGED_CONTAINER<const MCParticle *> MCParticleList;
+typedef std::MANAGED_CONTAINER<const ParticleFlowObject *> ParticleFlowObjectList;
+typedef std::MANAGED_CONTAINER<const ParticleFlowObject *> PfoList;
+typedef std::MANAGED_CONTAINER<const Track *> TrackList;
+typedef std::MANAGED_CONTAINER<const Vertex *> VertexList;
 
-typedef std::vector<CaloHit *> CaloHitVector;
-typedef std::vector<Cluster *> ClusterVector;
-typedef std::vector<DetectorGap *> DetectorGapVector;
-typedef std::vector<MCParticle *> MCParticleVector;
-typedef std::vector<ParticleFlowObject *> ParticleFlowObjectVector;
-typedef std::vector<ParticleFlowObject *> PfoVector;
-typedef std::vector<Track *> TrackVector;
-typedef std::vector<Vertex *> VertexVector;
+typedef std::vector<const CaloHit *> CaloHitVector;
+typedef std::vector<const Cluster *> ClusterVector;
+typedef std::vector<const DetectorGap *> DetectorGapVector;
+typedef std::vector<const MCParticle *> MCParticleVector;
+typedef std::vector<const ParticleFlowObject *> ParticleFlowObjectVector;
+typedef std::vector<const ParticleFlowObject *> PfoVector;
+typedef std::vector<const Track *> TrackVector;
+typedef std::vector<const Vertex *> VertexVector;
 
 typedef std::vector<AlgorithmTool *> AlgorithmToolList;
 
@@ -175,14 +181,15 @@ typedef std::vector<float> FloatVector;
 typedef std::vector<CartesianVector> CartesianPointList;
 
 typedef const void * Uid;
-typedef std::map<Uid, MCParticle *> UidToMCParticleMap;
+typedef std::map<Uid, const MCParticle *> UidToMCParticleMap;
 
-typedef std::map<MCParticle *, float> MCParticleWeightMap;
+typedef std::map<const MCParticle *, float> MCParticleWeightMap;
 typedef std::map<Uid, MCParticleWeightMap> UidToMCParticleWeightMap;
 
-typedef std::map<Track *, Cluster *> TrackToClusterMap;
+typedef std::map<const Cluster *, const Track * > ClusterToTrackMap;
+typedef std::map<const Track *, const Cluster * > TrackToClusterMap;
 
-typedef std::map<std::string, SubDetector*> SubDetectorMap;
+typedef std::map<std::string, const SubDetector *> SubDetectorMap;
 
 } // namespace pandora
 

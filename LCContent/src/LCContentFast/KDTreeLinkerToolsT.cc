@@ -1,4 +1,6 @@
-#include "LCUtility/KDTreeLinkerToolsT.h"
+#include "LCContentFast/KDTreeLinkerToolsT.h"
+
+namespace lc_content_fast {
 
 std::pair<float,float> minmax(const float a, const float b){
   return ( b < a ? 
@@ -7,15 +9,15 @@ std::pair<float,float> minmax(const float a, const float b){
 }
 
 template<>
-KDTreeCube fill_and_bound_3d_kd_tree<pandora::Track>(pandora::Algorithm* const  /*caller*/,
-						     const std::unordered_set<pandora::Track*>& points,
-						     std::vector<KDTreeNodeInfoT<pandora::Track*,3> >& nodes,
-						     bool passthru) {
+KDTreeCube fill_and_bound_3d_kd_tree<const pandora::Track>(pandora::Algorithm* const  /*caller*/,
+							   const std::unordered_set<const pandora::Track*>& points,
+							   std::vector<KDTreeNodeInfoT<const pandora::Track*,3> >& nodes,
+							   bool passthru) {
   std::array<float,3> minpos{ {0.0f,0.0f,0.0f} }, maxpos{ {0.0f,0.0f,0.0f} };
   unsigned i = 0;
-  for( pandora::Track* point : points ) {
+  for( const pandora::Track* point : points ) {
     if (!passthru && !point->CanFormPfo()) continue;
-    const pandora::CartesianVector& pos = kdtree_type_adaptor<pandora::Track>::position(point);
+    const pandora::CartesianVector& pos = kdtree_type_adaptor<const pandora::Track>::position(point);
     nodes.emplace_back(point, (float)pos.GetX(), (float)pos.GetY(), (float)pos.GetZ());
     if( i == 0 ) {
       minpos[0] = pos.GetX(); minpos[1] = pos.GetY(); minpos[2] = pos.GetZ();
@@ -36,14 +38,14 @@ KDTreeCube fill_and_bound_3d_kd_tree<pandora::Track>(pandora::Algorithm* const  
 }
 
 KDTreeTesseract fill_and_bound_4d_kd_tree(pandora::Algorithm* const  caller,
-					  const std::unordered_set<pandora::CaloHit*>& points,
-					  std::vector<KDTreeNodeInfoT<pandora::CaloHit*,4> >& nodes,
+					  const std::unordered_set<const pandora::CaloHit*>& points,
+					  std::vector<KDTreeNodeInfoT<const pandora::CaloHit*,4> >& nodes,
 					  bool passthru) {
   std::array<float,4> minpos{ {0.0f,0.0f,0.0f, 0.0f} }, maxpos{ {0.0f,0.0f,0.0f,0.0f} };
   unsigned i = 0;
-  for( pandora::CaloHit* point : points ) {
+  for( const pandora::CaloHit* point : points ) {
     if ( !passthru && !PandoraContentApi::IsAvailable(*caller, point) ) continue;
-    const pandora::CartesianVector& pos = kdtree_type_adaptor<pandora::CaloHit>::position(point);
+    const pandora::CartesianVector& pos = kdtree_type_adaptor<const pandora::CaloHit>::position(point);
     float layer = (float)point->GetPseudoLayer();
     nodes.emplace_back(point, (float)pos.GetX(), (float)pos.GetY(), (float)pos.GetZ(), layer);
     if( i == 0 ) {
@@ -67,7 +69,7 @@ KDTreeTesseract fill_and_bound_4d_kd_tree(pandora::Algorithm* const  caller,
 			 minpos[3],maxpos[3]);
 }
 
-KDTreeCube build_3d_kd_search_region( pandora::CaloHit* point,
+KDTreeCube build_3d_kd_search_region( const pandora::CaloHit* point,
 				      float x_span,
 				      float y_span,
 				      float z_span){
@@ -82,7 +84,7 @@ KDTreeCube build_3d_kd_search_region( pandora::CaloHit* point,
 		    z_side.first,z_side.second);
 }
 
-KDTreeTesseract build_4d_kd_search_region( pandora::CaloHit* point,
+KDTreeTesseract build_4d_kd_search_region( const pandora::CaloHit* point,
 					   float x_span,
 					   float y_span,
 					   float z_span,
@@ -112,3 +114,5 @@ KDTreeTesseract build_4d_kd_search_region( const pandora::CartesianVector& pos,
 			 z_side.first,z_side.second,
 			 layer_side.first,layer_side.second);
 }
+
+} //lc_content_fast

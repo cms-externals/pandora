@@ -55,14 +55,21 @@ ENDIF()
 INCLUDE_DIRECTORIES( ./include )
 INSTALL_DIRECTORY( ./include DESTINATION . FILES_MATCHING PATTERN "*.h" )
 
-ADD_DEFINITIONS( "-Wall -ansi -pedantic" )
-ADD_DEFINITIONS( "-Wno-long-long" )
-ADD_DEFINITIONS( "-DMONITORING" )
-
 AUX_SOURCE_DIRECTORY( ./src/ PandoraMonitoring_SRCS )
+
+ADD_DEFINITIONS( "-DMONITORING" )
 
 # require proper C++
 ADD_DEFINITIONS( "-Wall -ansi -pedantic" )
+
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    message( STATUS "The compiler ${CMAKE_CXX_COMPILER} has C++11 support." )
+    ADD_DEFINITIONS( "-std=c++11" )
+else()
+    message( STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Some functionality will be limited." )
+endif()
 
 # need long long for int64 for now
 ADD_DEFINITIONS( "-Wno-long-long -Wno-sign-compare -fno-strict-aliasing" )

@@ -62,7 +62,7 @@ float FragmentRemovalHelper::GetFractionOfCloseHits(const Cluster *const pCluste
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-float FragmentRemovalHelper::GetFractionOfHitsInCone(const Pandora &pandora, const Cluster *const pClusterI, Cluster *const pClusterJ,
+float FragmentRemovalHelper::GetFractionOfHitsInCone(const Pandora &pandora, const Cluster *const pClusterI, const Cluster *const pClusterJ,
     const float coneCosineHalfAngle)
 {
     CartesianVector coneApex(0.f, 0.f, 0.f), coneDirection(0.f, 0.f, 0.f);
@@ -310,7 +310,7 @@ StatusCode FragmentRemovalHelper::GetClusterContactDetails(const Cluster *const 
 //------------------------------------------------------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-ClusterContact::ClusterContact(const Pandora &pandora, Cluster *const pDaughterCluster, Cluster *const pParentCluster, const Parameters &parameters) :
+ClusterContact::ClusterContact(const Pandora &pandora, const Cluster *const pDaughterCluster, const Cluster *const pParentCluster, const Parameters &parameters) :
     m_pDaughterCluster(pDaughterCluster),
     m_pParentCluster(pParentCluster),
     m_nContactLayers(0),
@@ -328,7 +328,7 @@ ClusterContact::ClusterContact(const Pandora &pandora, Cluster *const pDaughterC
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-void ClusterContact::HitDistanceComparison(Cluster *const pDaughterCluster, Cluster *const pParentCluster, const Parameters &parameters)
+void ClusterContact::HitDistanceComparison(const Cluster *const pDaughterCluster, const Cluster *const pParentCluster, const Parameters &parameters)
 {
     const float closeHitDistance1Squared(parameters.m_closeHitDistance1 * parameters.m_closeHitDistance1);
     const float closeHitDistance2Squared(parameters.m_closeHitDistance2 * parameters.m_closeHitDistance2);
@@ -342,7 +342,7 @@ void ClusterContact::HitDistanceComparison(Cluster *const pDaughterCluster, Clus
     // Calculate all hit distance properties in a single loop, for efficiency
     unsigned int nCloseHits1(0), nCloseHits2(0);
     float minDistanceSquared(std::numeric_limits<float>::max());
-
+        
     const OrderedCaloHitList &orderedCaloHitListI(pDaughterCluster->GetOrderedCaloHitList());
     const OrderedCaloHitList &orderedCaloHitListJ(pParentCluster->GetOrderedCaloHitList());
 
@@ -350,25 +350,25 @@ void ClusterContact::HitDistanceComparison(Cluster *const pDaughterCluster, Clus
     for (OrderedCaloHitList::const_iterator iterI = orderedCaloHitListI.begin(), iterIEnd = orderedCaloHitListI.end(); iterI != iterIEnd; ++iterI)
     {
         for (CaloHitList::const_iterator hitIterI = iterI->second->begin(), hitIterIEnd = iterI->second->end(); hitIterI != hitIterIEnd; ++hitIterI)
-        {
+        {   
             bool isCloseHit1(false), isCloseHit2(false);
             const CartesianVector &positionVectorI((*hitIterI)->GetPositionVector());
 
             // Compare each hit in daughter cluster with those in parent cluster
             for (OrderedCaloHitList::const_iterator iterJ = orderedCaloHitListJ.begin(), iterJEnd = orderedCaloHitListJ.end(); iterJ != iterJEnd; ++iterJ)
-            {
+            {	      
                 for (CaloHitList::const_iterator hitIterJ = iterJ->second->begin(), hitIterJEnd = iterJ->second->end(); hitIterJ != hitIterJEnd; ++hitIterJ)
                 {
                     const float distanceSquared((positionVectorI - (*hitIterJ)->GetPositionVector()).GetMagnitudeSquared());
 
                     if (!isCloseHit1 && (distanceSquared < closeHitDistance1Squared))
-                        isCloseHit1 = true;
+		        isCloseHit1 = true;
 
                     if (!isCloseHit2 && (distanceSquared < closeHitDistance2Squared))
                         isCloseHit2 = true;
 
-                    if (distanceSquared < minDistanceSquared)
-                        minDistanceSquared = distanceSquared;
+                    if (distanceSquared < minDistanceSquared) 
+		        minDistanceSquared = distanceSquared;				
                 }
             }
 

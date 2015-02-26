@@ -64,7 +64,7 @@ void PhotonRecoveryAlgorithm::FindPhotonsIdentifiedAsHadrons(const ClusterList *
 {
     for (ClusterList::const_iterator iter = pClusterList->begin(), iterEnd = pClusterList->end(); iter != iterEnd; ++iter)
     {
-        Cluster *pCluster = *iter;
+        const Cluster *const pCluster = *iter;
 
         // Consider only plausible photon candidates, currently identified as hadrons
         if (!pCluster->GetAssociatedTrackList().empty())
@@ -131,7 +131,9 @@ void PhotonRecoveryAlgorithm::FindPhotonsIdentifiedAsHadrons(const ClusterList *
         // Tag the cluster as a fixed photon
         if (isPhoton)
         {
-            pCluster->SetIsFixedPhotonFlag(true);
+            PandoraContentApi::Cluster::Metadata metadata;
+            metadata.m_particleId = PHOTON;
+            PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pCluster, metadata));
         }
     }
 }
@@ -176,16 +178,20 @@ void PhotonRecoveryAlgorithm::PerformSoftPhotonId(const ClusterList *const pClus
 {
     for (ClusterList::const_iterator iter = pClusterList->begin(), iterEnd = pClusterList->end(); iter != iterEnd; ++iter)
     {
-        Cluster *pCluster = *iter;
+        const Cluster *const pCluster = *iter;
 
         if (this->IsSoftPhoton(pCluster))
-            pCluster->SetIsFixedPhotonFlag(true);
+        {
+            PandoraContentApi::Cluster::Metadata metadata;
+            metadata.m_particleId = PHOTON;
+            PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pCluster, metadata));
+        }
     }
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-bool PhotonRecoveryAlgorithm::IsSoftPhoton(Cluster *const pCluster) const
+bool PhotonRecoveryAlgorithm::IsSoftPhoton(const Cluster *const pCluster) const
 {
     const unsigned int nCaloHits(pCluster->GetNCaloHits());
 

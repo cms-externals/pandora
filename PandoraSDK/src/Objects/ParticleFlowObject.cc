@@ -28,6 +28,28 @@ ParticleFlowObject::ParticleFlowObject(const PandoraContentApi::ParticleFlowObje
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
+StatusCode ParticleFlowObject::AlterMetadata(const PandoraContentApi::ParticleFlowObject::Metadata &metadata)
+{
+    if (metadata.m_particleId.IsInitialized())
+        m_particleId = metadata.m_particleId.Get();
+
+    if (metadata.m_charge.IsInitialized())
+        m_charge = metadata.m_charge.Get();
+
+    if (metadata.m_mass.IsInitialized())
+        m_mass = metadata.m_mass.Get();
+
+    if (metadata.m_energy.IsInitialized())
+        m_energy = metadata.m_energy.Get();
+
+    if (metadata.m_momentum.IsInitialized())
+        m_momentum = metadata.m_momentum.Get();
+
+    return STATUS_CODE_SUCCESS;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
 TrackAddressList ParticleFlowObject::GetTrackAddressList() const
 {
     TrackAddressList trackAddressList;
@@ -72,7 +94,7 @@ ClusterAddressList ParticleFlowObject::GetClusterAddressList() const
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 template <>
-StatusCode ParticleFlowObject::AddToPfo(Cluster *pCluster)
+StatusCode ParticleFlowObject::AddToPfo(const Cluster *const pCluster)
 {
     if (!m_clusterList.insert(pCluster).second)
         return STATUS_CODE_ALREADY_PRESENT;
@@ -81,7 +103,7 @@ StatusCode ParticleFlowObject::AddToPfo(Cluster *pCluster)
 }
 
 template <>
-StatusCode ParticleFlowObject::AddToPfo(Track *pTrack)
+StatusCode ParticleFlowObject::AddToPfo(const Track *const pTrack)
 {
     if (!m_trackList.insert(pTrack).second)
         return STATUS_CODE_ALREADY_PRESENT;
@@ -90,7 +112,7 @@ StatusCode ParticleFlowObject::AddToPfo(Track *pTrack)
 }
 
 template <>
-StatusCode ParticleFlowObject::AddToPfo(Vertex *pVertex)
+StatusCode ParticleFlowObject::AddToPfo(const Vertex *const pVertex)
 {
     if (!m_vertexList.insert(pVertex).second)
         return STATUS_CODE_ALREADY_PRESENT;
@@ -101,7 +123,7 @@ StatusCode ParticleFlowObject::AddToPfo(Vertex *pVertex)
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 template <>
-StatusCode ParticleFlowObject::RemoveFromPfo(Cluster *pCluster)
+StatusCode ParticleFlowObject::RemoveFromPfo(const Cluster *const pCluster)
 {
     ClusterList::iterator iter = m_clusterList.find(pCluster);
 
@@ -113,7 +135,7 @@ StatusCode ParticleFlowObject::RemoveFromPfo(Cluster *pCluster)
 }
 
 template <>
-StatusCode ParticleFlowObject::RemoveFromPfo(Track *pTrack)
+StatusCode ParticleFlowObject::RemoveFromPfo(const Track *const pTrack)
 {
     TrackList::iterator iter = m_trackList.find(pTrack);
 
@@ -125,7 +147,7 @@ StatusCode ParticleFlowObject::RemoveFromPfo(Track *pTrack)
 }
 
 template <>
-StatusCode ParticleFlowObject::RemoveFromPfo(Vertex *pVertex)
+StatusCode ParticleFlowObject::RemoveFromPfo(const Vertex *const pVertex)
 {
     VertexList::iterator iter = m_vertexList.find(pVertex);
 
@@ -138,7 +160,7 @@ StatusCode ParticleFlowObject::RemoveFromPfo(Vertex *pVertex)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode ParticleFlowObject::AddParent(ParticleFlowObject *const pPfo)
+StatusCode ParticleFlowObject::AddParent(const ParticleFlowObject *const pPfo)
 {
     if (NULL == pPfo)
         return STATUS_CODE_INVALID_PARAMETER;
@@ -151,7 +173,7 @@ StatusCode ParticleFlowObject::AddParent(ParticleFlowObject *const pPfo)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode ParticleFlowObject::AddDaughter(ParticleFlowObject *const pPfo)
+StatusCode ParticleFlowObject::AddDaughter(const ParticleFlowObject *const pPfo)
 {
     if (NULL == pPfo)
         return STATUS_CODE_INVALID_PARAMETER;
@@ -164,7 +186,7 @@ StatusCode ParticleFlowObject::AddDaughter(ParticleFlowObject *const pPfo)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode ParticleFlowObject::RemoveParent(ParticleFlowObject *const pPfo)
+StatusCode ParticleFlowObject::RemoveParent(const ParticleFlowObject *const pPfo)
 {
     PfoList::const_iterator iter = m_parentPfoList.find(pPfo);
 
@@ -177,7 +199,7 @@ StatusCode ParticleFlowObject::RemoveParent(ParticleFlowObject *const pPfo)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode ParticleFlowObject::RemoveDaughter(ParticleFlowObject *const pPfo)
+StatusCode ParticleFlowObject::RemoveDaughter(const ParticleFlowObject *const pPfo)
 {
     PfoList::const_iterator iter = m_daughterPfoList.find(pPfo);
 

@@ -104,35 +104,35 @@ void ClusterComparisonAlgorithm::CompareClusters(const ClusterList &clusterList1
 
     for (ClusterToHitListMap::const_iterator iter = clusterToHitListMap1.begin(), iterEnd = clusterToHitListMap1.end(); iter != iterEnd; ++iter)
     {
-        Cluster *pCluster1 = iter->first;
+        const Cluster *const pCluster1 = iter->first;
         const CaloHitList &caloHitList1 = iter->second;
 
         // Collect all clusters in list 2 associated (via hits) with the current cluster in list 1
-        ClusterList matchesInClusterList2;
+        ClusterList linkedClusterList2;
         for (CaloHitList::const_iterator hIter = caloHitList1.begin(), hIterEnd = caloHitList1.end(); hIter != hIterEnd; ++hIter)
         {
-            HitToClusterMap::const_iterator htcIter = hitToClusterMap2.find(*hIter);
-            (hitToClusterMap2.end() != htcIter) ? matchesInClusterList2.insert(htcIter->second) : outputList1.insert(pCluster1);
+            HitToClusterMap::const_iterator htcIter2 = hitToClusterMap2.find(*hIter);
+            (hitToClusterMap2.end() != htcIter2) ? linkedClusterList2.insert(htcIter2->second) : outputList1.insert(pCluster1);
         }
 
-        // Check how many clusters in list 2 share hits with the single cluster in list 1; if just one still compare total numbers of hits
-        bool isDifference(matchesInClusterList2.size() != 1);
+        // Check how many clusters in list 2 share hits with the single cluster in list 1; if just one, compare total numbers of hits
+        bool isDifference(linkedClusterList2.size() != 1);
 
-        if (matchesInClusterList2.size() == 1)
+        if (!isDifference)
         {
-            ClusterToHitListMap::const_iterator cthIter = clusterToHitListMap2.find(*(matchesInClusterList2.begin()));
+            ClusterToHitListMap::const_iterator cthIter2 = clusterToHitListMap2.find(*(linkedClusterList2.begin()));
 
-            if (clusterToHitListMap2.end() == cthIter)
+            if (clusterToHitListMap2.end() == cthIter2)
                 throw StatusCodeException(STATUS_CODE_FAILURE);
 
-            if (caloHitList1.size() != cthIter->second.size())
+            if (caloHitList1.size() != cthIter2->second.size())
                 isDifference = true;
         }
 
         if (isDifference)
         {
             outputList1.insert(pCluster1);
-            outputList2.insert(matchesInClusterList2.begin(), matchesInClusterList2.end());
+            outputList2.insert(linkedClusterList2.begin(), linkedClusterList2.end());
         }
     }
 
@@ -153,7 +153,7 @@ void ClusterComparisonAlgorithm::PopulateMaps(const pandora::ClusterList &cluste
 {
     for (ClusterList::const_iterator iter = clusterList.begin(), iterEnd = clusterList.end(); iter != iterEnd; ++iter)
     {
-        Cluster *pCluster = *iter;
+        const Cluster *const pCluster = *iter;
 
         CaloHitList caloHitList;
         pCluster->GetOrderedCaloHitList().GetCaloHitList(caloHitList);

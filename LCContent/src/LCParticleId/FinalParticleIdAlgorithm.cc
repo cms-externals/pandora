@@ -23,7 +23,7 @@ StatusCode FinalParticleIdAlgorithm::Run()
     for (PfoList::const_iterator iter = pPfoList->begin(), iterEnd = pPfoList->end();
         iter != iterEnd; ++iter)
     {
-        ParticleFlowObject *pPfo = *iter;
+        const ParticleFlowObject *const pPfo = *iter;
 
         const TrackList &trackList(pPfo->GetTrackList());
         const ClusterList &clusterList(pPfo->GetClusterList());
@@ -41,22 +41,26 @@ StatusCode FinalParticleIdAlgorithm::Run()
         if ((std::abs(pPfo->GetParticleId()) == E_MINUS) || (std::abs(pPfo->GetParticleId()) == MU_MINUS))
             continue;
 
-        Cluster *pCluster = *(clusterList.begin());
-        const ParticleId *pParticleId(PandoraContentApi::GetPlugins(*this)->GetParticleId());
+        const Cluster *const pCluster = *(clusterList.begin());
+        const ParticleId *const pParticleId(PandoraContentApi::GetPlugins(*this)->GetParticleId());
 
         // Run electron id, followed by muon id
+        PandoraContentApi::ParticleFlowObject::Metadata metadata;
+
         if (pParticleId->IsElectron(pCluster))
         {
-            pPfo->SetParticleId((charge < 0) ? E_MINUS : E_PLUS);
-            pPfo->SetMass(PdgTable::GetParticleMass(pPfo->GetParticleId()));
-            pPfo->SetEnergy(std::sqrt(pPfo->GetMass() * pPfo->GetMass() + pPfo->GetMomentum().GetMagnitudeSquared()));
+            metadata.m_particleId = (charge < 0) ? E_MINUS : E_PLUS;
+        }
+        else if (pParticleId->IsMuon(pCluster))
+        {
+            metadata.m_particleId = (charge < 0) ? MU_MINUS : MU_PLUS;
         }
 
-        if (pParticleId->IsMuon(pCluster))
+        if (metadata.m_particleId.IsInitialized())
         {
-            pPfo->SetParticleId((charge < 0) ? MU_MINUS : MU_PLUS);
-            pPfo->SetMass(PdgTable::GetParticleMass(pPfo->GetParticleId()));
-            pPfo->SetEnergy(std::sqrt(pPfo->GetMass() * pPfo->GetMass() + pPfo->GetMomentum().GetMagnitudeSquared()));
+            metadata.m_mass = PdgTable::GetParticleMass(metadata.m_particleId.Get());
+            metadata.m_energy = std::sqrt(metadata.m_mass.Get() * metadata.m_mass.Get() + pPfo->GetMomentum().GetMagnitudeSquared());
+            PANDORA_RETURN_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pPfo, metadata));
         }
     }
 

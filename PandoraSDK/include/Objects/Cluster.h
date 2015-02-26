@@ -16,9 +16,6 @@
 
 #include "Pandora/PandoraInternal.h"
 
-#include <unordered_map>
-#include <array>
-
 namespace pandora
 {
 
@@ -76,6 +73,13 @@ public:
     float GetMipFraction() const;
 
     /**
+     *  @brief  Get the number of hits in the outer sampling layers
+     * 
+     *  @return The number of hits in this cluster in the outermost sampling layer
+     */
+    unsigned GetNHitsInOuterLayer() const;
+
+    /**
      *  @brief  Get the sum of electromagnetic energy measures of all constituent calo hits, units GeV
      * 
      *  @return The electromagnetic energy measure
@@ -104,25 +108,11 @@ public:
     float GetIsolatedHadronicEnergy() const;
 
     /**
-     *  @brief  Whether the cluster has been flagged as a fixed photon cluster
+     *  @brief  Get the particle id flag
      * 
-     *  @return boolean
+     *  @return The particle id flag
      */
-    bool IsFixedPhoton() const;
-
-    /**
-     *  @brief  Whether the cluster has been flagged as a fixed electron cluster
-     * 
-     *  @return boolean
-     */
-    bool IsFixedElectron() const;
-
-    /**
-     *  @brief  Whether the cluster has been flagged as a fixed muon cluster
-     * 
-     *  @return boolean
-     */
-    bool IsFixedMuon() const;
+    int GetParticleIdFlag() const;
 
     /**
      *  @brief  Whether the cluster is track seeded
@@ -195,27 +185,6 @@ public:
      *  @return Address of the list of associated tracks
      */
     const TrackList &GetAssociatedTrackList() const;
-
-    /**
-     *  @brief  Set the is fixed photon flag for the cluster
-     * 
-     *  @param  isFixedPhotonFlag the is fixed photon flag
-     */
-    void SetIsFixedPhotonFlag(bool isFixedPhotonFlag);
-
-    /**
-     *  @brief  Set the is fixed electron flag for the cluster
-     * 
-     *  @param  isFixedElectronFlag the is fixed electron flag
-     */
-    void SetIsFixedElectronFlag(bool isFixedElectronFlag);
-
-    /**
-     *  @brief  Set the is fixed muon flag for the cluster
-     * 
-     *  @param  isFixedMuonFlag the is fixed muon flag
-     */
-    void SetIsFixedMuonFlag(bool isFixedMuonFlag);
 
     /**
      *  @brief  Whether the cluster is available to be added to a particle flow object
@@ -303,32 +272,39 @@ private:
     ~Cluster();
 
     /**
+     *  @brief  Alter the metadata information stored in a cluster
+     * 
+     *  @param  metaData the metadata (only populated metadata fields will be propagated to the object)
+     */
+    StatusCode AlterMetadata(const PandoraContentApi::Cluster::Metadata &metadata);
+
+    /**
      *  @brief  Add a calo hit to the cluster
      * 
      *  @param  pCaloHit the address of the calo hit
      */
-    StatusCode AddCaloHit(CaloHit *const pCaloHit);
+    StatusCode AddCaloHit(const CaloHit *const pCaloHit);
 
     /**
      *  @brief  Remove a calo hit from the cluster
      * 
      *  @param  pCaloHit the address of the calo hit
      */
-    StatusCode RemoveCaloHit(CaloHit *const pCaloHit);
+    StatusCode RemoveCaloHit(const CaloHit *const pCaloHit);
 
     /**
      *  @brief  Add an isolated calo hit to the cluster.
      * 
      *  @param  pCaloHit the address of the isolated calo hit
      */
-    StatusCode AddIsolatedCaloHit(CaloHit *const pCaloHit);
+    StatusCode AddIsolatedCaloHit(const CaloHit *const pCaloHit);
 
     /**
      *  @brief  Remove an isolated calo hit from the cluster
      * 
      *  @param  pCaloHit the address of the isolated calo hit
      */
-    StatusCode RemoveIsolatedCaloHit(CaloHit *const pCaloHit);
+    StatusCode RemoveIsolatedCaloHit(const CaloHit *const pCaloHit);
 
     /**
      *  @brief  Calculate result of a linear fit to all calo hits in the cluster
@@ -391,21 +367,21 @@ private:
      * 
      *  @param  pCluster the address of the second cluster
      */
-    StatusCode AddHitsFromSecondCluster(Cluster *const pCluster);
+    StatusCode AddHitsFromSecondCluster(const Cluster *const pCluster);
 
     /**
      *  @brief  Add an association between the cluster and a track
      * 
      *  @param  pTrack the address of the track with which the cluster is associated
      */
-    StatusCode AddTrackAssociation(Track *const pTrack);
+    StatusCode AddTrackAssociation(const Track *const pTrack);
 
     /**
      *  @brief  Remove an association between the cluster and a track
      * 
      *  @param  pTrack the address of the track with which the cluster is no longer associated
      */
-    StatusCode RemoveTrackAssociation(Track *const pTrack);
+    StatusCode RemoveTrackAssociation(const Track *const pTrack);
 
     /**
      *  @brief  Remove the track seed, changing the initial direction measurement.
@@ -419,12 +395,17 @@ private:
      */
     void SetAvailability(bool isAvailable);
 
-    typedef struct {
-      std::array<double,3> pos;
-      unsigned int         nhits;
-    } SimplePoint;
-    typedef std::unordered_map<unsigned int, SimplePoint > PointByPseudoLayerMap;
-    typedef std::unordered_map<unsigned int, double> ValueByPseudoLayerMap;///< The value by pseudo layer typedef
+    /**
+     *  @brief  SimplePoint class
+     */
+    class SimplePoint
+    {
+    public:
+        double                  m_xyzPositionSums[3];           ///< The sum of the x, y and z hit positions in the pseudo layer
+        unsigned int            m_nHits;                        ///< The number of hits in the pseudo layer
+    };
+
+    typedef std::map<unsigned int, SimplePoint> PointByPseudoLayerMap;///< The point by pseudo layer typedef
     typedef std::map<HitType, float> HitTypeToEnergyMap;        ///< The hit type to energy map typedef
 
     OrderedCaloHitList          m_orderedCaloHitList;           ///< The ordered calo hit list
@@ -432,25 +413,18 @@ private:
 
     unsigned int                m_nCaloHits;                    ///< The number of calo hits
     unsigned int                m_nPossibleMipHits;             ///< The number of calo hits that have been flagged as possible mip hits
+    unsigned int                m_nCaloHitsInOuterLayer;        ///< keep track of the number of calo hits in the outermost layers
 
     double                      m_electromagneticEnergy;        ///< The sum of electromagnetic energy measures of constituent calo hits, units GeV
     double                      m_hadronicEnergy;               ///< The sum of hadronic energy measures of constituent calo hits, units GeV
     double                      m_isolatedElectromagneticEnergy;///< Sum of electromagnetic energy measures of isolated calo hits, units GeV
     double                      m_isolatedHadronicEnergy;       ///< Sum of hadronic energy measures of isolated calo hits, units GeV
 
-    bool                        m_isFixedPhoton;                ///< Whether the cluster has been flagged as a fixed photon cluster
-    bool                        m_isFixedElectron;              ///< Whether the cluster has been flagged as a fixed electron cluster
-    bool                        m_isFixedMuon;                  ///< Whether the cluster has been flagged as a fixed muon cluster
+    int                         m_particleId;                   ///< The particle id flag
 
     const Track                *m_pTrackSeed;                   ///< Address of the track with which the cluster is seeded
 
-    PointByPseudoLayerMap       m_sumXYZByPseudoLayer;          ///< The centroid in each pseudolayer
-    
-    /*
-    ValueByPseudoLayerMap       m_sumXByPseudoLayer;            ///< The sum of the x coordinates of the calo hits, stored by pseudo layer
-    ValueByPseudoLayerMap       m_sumYByPseudoLayer;            ///< The sum of the y coordinates of the calo hits, stored by pseudo layer
-    ValueByPseudoLayerMap       m_sumZByPseudoLayer;            ///< The sum of the z coordinates of the calo hits, stored by pseudo layer
-    */
+    PointByPseudoLayerMap       m_sumXYZByPseudoLayer;          ///< Construct to allow rapid calculation of centroid in each pseudolayer
 
     InputUInt                   m_innerPseudoLayer;             ///< The innermost pseudo layer in the cluster
     InputUInt                   m_outerPseudoLayer;             ///< The outermost pseudo layer in the cluster
@@ -477,7 +451,6 @@ private:
 
     bool                        m_isAvailable;                  ///< Whether the cluster is available to be added to a particle flow object
 
-    friend class PandoraContentApiImpl;
     friend class ClusterManager;
     friend class AlgorithmObjectManager<Cluster>;
 };
@@ -521,12 +494,12 @@ inline unsigned int Cluster::GetNPossibleMipHits() const
 
 inline float Cluster::GetMipFraction() const
 {
-    float mipFraction = 0;
+    return ((0 != m_nCaloHits) ? static_cast<float> (m_nPossibleMipHits) / static_cast<float> (m_nCaloHits) : 0);
+}
 
-    if (0 != m_nCaloHits)
-        mipFraction = static_cast<float> (m_nPossibleMipHits) / static_cast<float> (m_nCaloHits);
-
-    return mipFraction;
+inline unsigned Cluster::GetNHitsInOuterLayer() const
+{
+  return m_nCaloHitsInOuterLayer;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -559,23 +532,9 @@ inline float Cluster::GetIsolatedHadronicEnergy() const
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-inline bool Cluster::IsFixedPhoton() const
+inline int Cluster::GetParticleIdFlag() const
 {
-    return m_isFixedPhoton;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-inline bool Cluster::IsFixedElectron() const
-{
-    return m_isFixedElectron;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-inline bool Cluster::IsFixedMuon() const
-{
-    return m_isFixedMuon;
+    return m_particleId;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -658,28 +617,6 @@ inline const TrackList &Cluster::GetAssociatedTrackList() const
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-inline void Cluster::SetIsFixedPhotonFlag(bool isFixedPhotonFlag)
-{
-    m_isPhotonFast.Reset();
-    m_isFixedPhoton = isFixedPhotonFlag;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-inline void Cluster::SetIsFixedElectronFlag(bool isFixedElectronFlag)
-{
-    m_isFixedElectron = isFixedElectronFlag;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-inline void Cluster::SetIsFixedMuonFlag(bool isFixedMuonFlag)
-{
-    m_isFixedMuon = isFixedMuonFlag;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
 inline float Cluster::GetCorrectedElectromagneticEnergy(const Pandora &pandora) const
 {
     if (!m_correctedElectromagneticEnergy.IsInitialized())
@@ -752,25 +689,6 @@ inline float Cluster::GetShowerProfileDiscrepancy(const Pandora &pandora) const
 
 inline Cluster::~Cluster()
 {
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-inline void Cluster::ResetOutdatedProperties()
-{
-    m_isFitUpToDate = false;
-    m_isDirectionUpToDate = false;
-    m_initialDirection.SetValues(0.f, 0.f, 0.f);
-    m_fitToAllHitsResult.Reset();
-    m_showerStartLayer.Reset();
-    m_isPhotonFast.Reset();
-    m_showerProfileStart.Reset();
-    m_showerProfileDiscrepancy.Reset();
-    m_correctedElectromagneticEnergy.Reset();
-    m_correctedHadronicEnergy.Reset();
-    m_trackComparisonEnergy.Reset();
-    m_innerLayerHitType.Reset();
-    m_outerLayerHitType.Reset();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------

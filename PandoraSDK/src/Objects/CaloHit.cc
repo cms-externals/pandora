@@ -14,20 +14,6 @@
 namespace pandora
 {
 
-void CaloHit::SetIsolatedFlag(const bool isolatedFlag)
-{
-    m_isIsolated = isolatedFlag;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-void CaloHit::SetPossibleMipFlag(const bool possibleMipFlag)
-{
-    m_isPossibleMip = possibleMipFlag;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
 CaloHit::CaloHit(const PandoraApi::CaloHitBaseParameters &parameters) :
     m_positionVector(parameters.m_positionVector.Get()),
     m_expectedDirection(parameters.m_expectedDirection.Get().GetUnitVector()),
@@ -56,7 +42,7 @@ CaloHit::CaloHit(const PandoraApi::CaloHitBaseParameters &parameters) :
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-CaloHit::CaloHit(CaloHit *pCaloHit, const float weight) :
+CaloHit::CaloHit(const CaloHit *const pCaloHit, const float weight) :
     m_positionVector(pCaloHit->m_positionVector),
     m_expectedDirection(pCaloHit->m_expectedDirection),
     m_cellNormalVector(pCaloHit->m_cellNormalVector),
@@ -104,6 +90,19 @@ StatusCode CaloHit::SetPseudoLayer(const unsigned int pseudoLayer)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
+StatusCode CaloHit::AlterMetadata(const PandoraContentApi::CaloHit::Metadata &metadata)
+{
+    if (metadata.m_isPossibleMip.IsInitialized())
+        m_isPossibleMip = metadata.m_isPossibleMip.Get();
+
+    if (metadata.m_isIsolated.IsInitialized())
+        m_isIsolated = metadata.m_isIsolated.Get();
+
+    return STATUS_CODE_SUCCESS;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
 void CaloHit::SetMCParticleWeightMap(const MCParticleWeightMap &mcParticleWeightMap)
 {
     m_mcParticleWeightMap = mcParticleWeightMap;
@@ -130,11 +129,11 @@ RectangularCaloHit::RectangularCaloHit(const PandoraApi::RectangularCaloHit::Par
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-RectangularCaloHit::RectangularCaloHit(RectangularCaloHit *pCaloHit, const float weight) :
+RectangularCaloHit::RectangularCaloHit(const RectangularCaloHit *const pCaloHit, const float weight) :
     CaloHit(pCaloHit, weight),
-    m_cellSizeU(pCaloHit->m_cellSizeU),
-    m_cellSizeV(pCaloHit->m_cellSizeV),
-    m_cellLengthScale(pCaloHit->m_cellLengthScale)
+    m_cellSizeU(pCaloHit->GetCellSizeU()),
+    m_cellSizeV(pCaloHit->GetCellSizeV()),
+    m_cellLengthScale(pCaloHit->GetCellLengthScale())
 {
 }
 
@@ -177,11 +176,11 @@ PointingCaloHit::PointingCaloHit(const PandoraApi::PointingCaloHit::Parameters &
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-PointingCaloHit::PointingCaloHit(PointingCaloHit *pCaloHit, const float weight) :
+PointingCaloHit::PointingCaloHit(const PointingCaloHit *const pCaloHit, const float weight) :
     CaloHit(pCaloHit, weight),
-    m_cellSizeEta(pCaloHit->m_cellSizeEta),
-    m_cellSizePhi(pCaloHit->m_cellSizePhi),
-    m_cellLengthScale(pCaloHit->m_cellLengthScale)
+    m_cellSizeEta(pCaloHit->GetCellSizeEta()),
+    m_cellSizePhi(pCaloHit->GetCellSizePhi()),
+    m_cellLengthScale(pCaloHit->GetCellLengthScale())
 {
 }
 

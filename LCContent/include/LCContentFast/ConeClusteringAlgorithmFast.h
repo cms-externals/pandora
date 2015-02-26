@@ -1,5 +1,5 @@
 /**
- *  @file   LCContent/include/LCClustering/ConeClusteringAlgorithmFast.h
+ *  @file   LCContent/include/LCContentFast/ConeClusteringAlgorithmFast.h
  * 
  *  @brief  Header file for the clustering algorithm class.
  * 
@@ -15,7 +15,8 @@
 #include "Objects/CaloHit.h"
 #include "Objects/CartesianVector.h"
 
-#include "LCUtility/KDTreeLinkerAlgoT.h"
+#include "LCContentFast/KDTreeLinkerAlgoT.h"
+
 #include <unordered_map>
 
 namespace lc_content_fast
@@ -37,8 +38,7 @@ public:
     bool operator()(const pandora::CaloHit *lhs, const pandora::CaloHit *rhs) const;
 };
 
-//, CustomHitOrder
-typedef std::vector<pandora::CaloHit *> CustomSortedCaloHitList;
+typedef std::vector<const pandora::CaloHit *> CustomSortedCaloHitList;
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -76,15 +76,16 @@ private:
     /**
      *  @brief  Use current track list to make seed clusters
      * 
+     *  @param  pTrackList address of the track list
      *  @param  clusterVector to receive the addresses of clusters created (which could also be accessed via current cluster list)
      */
-    pandora::StatusCode SeedClustersWithTracks(const pandora::TrackList*, pandora::ClusterVector &clusterVector);
+    pandora::StatusCode SeedClustersWithTracks(const pandora::TrackList *const pTrackList, pandora::ClusterVector &clusterVector);
 
-    typedef std::unordered_map<pandora::Cluster*, pandora::ClusterFitResult> ClusterFitResultMap;
-    typedef KDTreeLinkerAlgo<pandora::CaloHit*,4> HitKDTree;
-    typedef KDTreeNodeInfoT<pandora::CaloHit*,4> HitKDNode;
-    typedef KDTreeLinkerAlgo<pandora::Track*,3> TrackKDTree;
-    typedef KDTreeNodeInfoT<pandora::Track*,3> TrackKDNode;
+    typedef std::map<const pandora::Cluster*, const pandora::ClusterFitResult> ClusterFitResultMap;
+    typedef KDTreeLinkerAlgo<const pandora::CaloHit*, 4> HitKDTree;
+    typedef KDTreeNodeInfoT<const pandora::CaloHit*, 4> HitKDNode;
+    typedef KDTreeLinkerAlgo<const pandora::Track*, 3> TrackKDTree;
+    typedef KDTreeNodeInfoT<const pandora::Track*, 3> TrackKDNode;
 
     /**
      *  @brief  Update the properties of the current clusters, calculating their current directions and storing the fit results
@@ -93,7 +94,7 @@ private:
      *  @param  clusterVector vector containing addresses of current clusters
      *  @param  clusterFitResultMap to receive the populated cluster fit result map
      */
-    pandora::StatusCode GetCurrentClusterFitResults(pandora::ClusterVector &clusterVector, ClusterFitResultMap &clusterFitResultMap) const;
+    pandora::StatusCode GetCurrentClusterFitResults(const pandora::ClusterVector &clusterVector, ClusterFitResultMap &clusterFitResultMap) const;
 
     /**
      *  @brief  Match clusters to calo hits in previous pseudo layers
@@ -126,7 +127,7 @@ private:
      *  @param  clusterFitResultMap containing the current cluster fit results
      *  @param  genericDistance to receive the generic distance
      */
-    pandora::StatusCode GetGenericDistanceToHit(pandora::Cluster *const pCluster, pandora::CaloHit *const pCaloHit,
+    pandora::StatusCode GetGenericDistanceToHit(const pandora::Cluster *const pCluster, const pandora::CaloHit *const pCaloHit,
         const unsigned int searchLayer, const ClusterFitResultMap &clusterFitResultMap, float &genericDistance) const;
 
     /**
@@ -136,7 +137,7 @@ private:
      *  @param  pCaloHitList address of the cluster's constituent hit list
      *  @param  distance to receive the distance
      */
-    pandora::StatusCode GetDistanceToHitInSameLayer(pandora::CaloHit *const pCaloHit, const pandora::CaloHitList *const pCaloHitList,
+    pandora::StatusCode GetDistanceToHitInSameLayer(const pandora::CaloHit *const pCaloHit, const pandora::CaloHitList *const pCaloHitList,
         float &distance) const;
 
     /**
@@ -148,7 +149,7 @@ private:
      *  @param  clusterDirection
      *  @param  distance to receive the generic distance
      */
-    pandora::StatusCode GetConeApproachDistanceToHit(pandora::CaloHit *const pCaloHit, const pandora::CaloHitList *const pCaloHitList,
+    pandora::StatusCode GetConeApproachDistanceToHit(const pandora::CaloHit *const pCaloHit, const pandora::CaloHitList *const pCaloHitList,
         const pandora::CartesianVector &clusterDirection, float &distance) const;
 
     /**
@@ -160,7 +161,7 @@ private:
      *  @param  clusterDirection the cluster direction unit vector
      *  @param  distance to receive the distance
      */
-    pandora::StatusCode GetConeApproachDistanceToHit(pandora::CaloHit *const pCaloHit, const pandora::CartesianVector &clusterPosition,
+    pandora::StatusCode GetConeApproachDistanceToHit(const pandora::CaloHit *const pCaloHit, const pandora::CartesianVector &clusterPosition,
         const pandora::CartesianVector &clusterDirection, float &distance) const;
 
     /**
@@ -173,7 +174,7 @@ private:
      *  @param  the pseudolayer currently being examined
      *  @param  to receive the distance
      */
-    pandora::StatusCode GetDistanceToTrackSeed(pandora::Cluster *const pCluster, pandora::CaloHit *const pCaloHit,
+    pandora::StatusCode GetDistanceToTrackSeed(const pandora::Cluster *const pCluster, const pandora::CaloHit *const pCaloHit,
         unsigned int searchLayer, float &distance) const;
 
     /**
@@ -183,36 +184,36 @@ private:
      *  @param  pCaloHit address of the calo hit
      *  @param  distance to receive the distance
      */
-    pandora::StatusCode GetDistanceToTrackSeed(pandora::Cluster *const pCluster, pandora::CaloHit *const pCaloHit, float &distance) const;
+    pandora::StatusCode GetDistanceToTrackSeed(const pandora::Cluster *const pCluster, const pandora::CaloHit *const pCaloHit, float &distance) const;
 
     /**
      *  @brief  Remove any empty clusters at the end of the algorithm
      * 
      *  @param  clusterVector containing the addresses of all clusters created
      */
-    pandora::StatusCode RemoveEmptyClusters(pandora::ClusterVector &clusterVector) const;
+    pandora::StatusCode RemoveEmptyClusters(const pandora::ClusterVector &clusterVector) const;
 
     /**
      *  @brief  kd-tree containing all tracks in given to the clusterizer
      */
     std::vector<TrackKDNode> m_trackNodes;
     TrackKDTree m_tracksKdTree;
-    
+
     /**
      *  @brief  kd-tree containing all rechits given to the clusterizer
      */
     std::vector<HitKDNode> m_hitNodes;
     HitKDTree m_hitsKdTree;
-    
-    /**
-     *  @brief  hashtable to look up hits in clusters
-     */    
-    std::unordered_map<pandora::CaloHit*, pandora::Cluster*> m_hitsToClusters;
 
     /**
      *  @brief  hashtable to look up hits in clusters
-     */    
-    std::unordered_map<pandora::Track*, pandora::Cluster*> m_tracksToClusters;
+     */
+    std::unordered_map<const pandora::CaloHit*, const pandora::Cluster*> m_hitsToClusters;
+
+    /**
+     *  @brief  hashtable to look up hits in clusters
+     */
+    std::unordered_map<const pandora::Track*, const pandora::Cluster*> m_tracksToClusters;
 
     unsigned int    m_clusterSeedStrategy;          ///< Flag determining if and how clusters should be seeded with tracks
 
@@ -262,8 +263,8 @@ private:
     float           m_fitSuccessChi2Cut2;           ///< 2. Max value of fit chi2 for fit success
 
     float           m_mipTrackChi2Cut;              ///< Max value of fit chi2 for track seeded cluster to retain its IsMipTrack status
-    
-    unsigned int    m_firstLayer; /// cache the pseudo layer at IP when we call run!
+
+    unsigned int    m_firstLayer;                   ///< cache the pseudo layer at IP
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -286,4 +287,4 @@ inline pandora::Algorithm *ConeClusteringAlgorithm::Factory::CreateAlgorithm() c
 
 } // namespace lc_content_fast
 
-#endif // #ifndef LC_CONE_CLUSTERING_ALGORITHM_H
+#endif // #ifndef LC_CONE_CLUSTERING_ALGORITHM_FAST_H

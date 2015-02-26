@@ -24,18 +24,66 @@ namespace pandora { class CaloHit; class Cluster; class MCParticle; class Partic
 class PandoraContentApi
 {
 public:
+    /* Object-metadata manipulation */
+
+    /**
+     *  @brief  CaloHitMetadata class
+     */
+    class CaloHitMetadata
+    {
+    public:
+        pandora::InputBool              m_isIsolated;           ///< The calo hit isolation flag
+        pandora::InputBool              m_isPossibleMip;        ///< The calo hit minimum ionising particle flag
+    };
+
+    /**
+     *  @brief  ClusterMetadata class
+     */
+    class ClusterMetadata
+    {
+    public:
+        pandora::InputInt               m_particleId;           ///< The cluster id (PDG code)
+    };
+
+    /**
+     *  @brief  ParticleFlowObjectMetadata class
+     */
+    class ParticleFlowObjectMetadata
+    {
+    public:
+        pandora::InputInt               m_particleId;           ///< The particle flow object id (PDG code)
+        pandora::InputInt               m_charge;               ///< The particle flow object charge
+        pandora::InputFloat             m_mass;                 ///< The particle flow object mass
+        pandora::InputFloat             m_energy;               ///< The particle flow object energy
+        pandora::InputCartesianVector   m_momentum;             ///< The particle flow object momentum
+    };
+
+    /**
+     *  @brief  Alter the metadata information stored in an object
+     * 
+     *  @param  algorithm the algorithm calling this function
+     *  @param  pObject address of the object to modify
+     *  @param  metaData the metadata (only populated metadata fields will be propagated to the object)
+     */
+    template <typename OBJECT, typename METADATA>
+    static pandora::StatusCode AlterMetadata(const pandora::Algorithm &algorithm, const OBJECT *const pObject, const METADATA &metadata);
+
+
     /* Object-creation functions */
 
     /**
      *  @brief  Object creation helper class
      * 
      *  @param  PARAMETERS the type of object parameters
+     *  @param  METADATA the type of object metadata
+     *  @param  OBJECT the type of object
      */
-    template <typename PARAMETERS, typename OBJECT>
+    template <typename PARAMETERS, typename METADATA, typename OBJECT>
     class ObjectCreationHelper
     {
     public:
         typedef PARAMETERS Parameters;
+        typedef METADATA Metadata;
         typedef OBJECT Object;
 
         /**
@@ -45,7 +93,7 @@ public:
          *  @param  parameters the object parameters
          *  @param  pObject to receive the address of the object created
          */
-        static pandora::StatusCode Create(const pandora::Algorithm &algorithm, const Parameters &parameters, Object *&pObject);
+        static pandora::StatusCode Create(const pandora::Algorithm &algorithm, const Parameters &parameters, const Object *&pObject);
     };
 
     /**
@@ -62,14 +110,9 @@ public:
     /**
      *  @brief  ParticleFlowObjectParameters class
      */
-    class ParticleFlowObjectParameters
+    class ParticleFlowObjectParameters : public ParticleFlowObjectMetadata
     {
     public:
-        pandora::InputInt               m_particleId;           ///< The particle flow object id (PDG code)
-        pandora::InputInt               m_charge;               ///< The particle flow object charge
-        pandora::InputFloat             m_mass;                 ///< The particle flow object mass
-        pandora::InputFloat             m_energy;               ///< The particle flow object energy
-        pandora::InputCartesianVector   m_momentum;             ///< The particle flow object momentum
         pandora::ClusterList            m_clusterList;          ///< The clusters in the particle flow object
         pandora::TrackList              m_trackList;            ///< The tracks in the particle flow object
         pandora::VertexList             m_vertexList;           ///< The vertices in the particle flow object
@@ -85,14 +128,14 @@ public:
         pandora::InputVertexType        m_vertexType;           ///< The vertex type
     };
 
-    typedef ObjectCreationHelper<ClusterParameters, pandora::Cluster> Cluster;
-    typedef ObjectCreationHelper<ParticleFlowObjectParameters, pandora::ParticleFlowObject> ParticleFlowObject;
-    typedef ObjectCreationHelper<VertexParameters, pandora::Vertex> Vertex;
-    typedef ObjectCreationHelper<PandoraApi::MCParticle::Parameters, pandora::MCParticle> MCParticle;
-    typedef ObjectCreationHelper<PandoraApi::Track::Parameters, pandora::Track> Track;
-    typedef ObjectCreationHelper<PandoraApi::RectangularCaloHit::Parameters, pandora::CaloHit> CaloHit;
-    typedef ObjectCreationHelper<PandoraApi::RectangularCaloHit::Parameters, pandora::CaloHit> RectangularCaloHit;
-    typedef ObjectCreationHelper<PandoraApi::PointingCaloHit::Parameters, pandora::CaloHit> PointingCaloHit;
+    typedef ObjectCreationHelper<ClusterParameters, ClusterMetadata, const pandora::Cluster> Cluster;
+    typedef ObjectCreationHelper<ParticleFlowObjectParameters, ParticleFlowObjectMetadata, const pandora::ParticleFlowObject> ParticleFlowObject;
+    typedef ObjectCreationHelper<VertexParameters, void, const pandora::Vertex> Vertex;
+    typedef ObjectCreationHelper<PandoraApi::MCParticle::Parameters, void, const pandora::MCParticle> MCParticle;
+    typedef ObjectCreationHelper<PandoraApi::Track::Parameters, void, const pandora::Track> Track;
+    typedef ObjectCreationHelper<PandoraApi::RectangularCaloHit::Parameters, CaloHitMetadata, const pandora::CaloHit> CaloHit;
+    typedef ObjectCreationHelper<PandoraApi::RectangularCaloHit::Parameters, CaloHitMetadata, const pandora::CaloHit> RectangularCaloHit;
+    typedef ObjectCreationHelper<PandoraApi::PointingCaloHit::Parameters, CaloHitMetadata, const pandora::CaloHit> PointingCaloHit;
 
 
     /* Accessors for plugins and global settings */
@@ -328,7 +371,7 @@ public:
      *  @return boolean
      */
     template <typename T>
-    static bool IsAvailable(const pandora::Algorithm &algorithm, T *pT);
+    static bool IsAvailable(const pandora::Algorithm &algorithm, const T *const pT);
 
 
     /* Object-related functions: algorithm objects only (Clusters, Pfos, Vertices) */
@@ -340,7 +383,7 @@ public:
      *  @param  pT address of the object, or a list of objects, to delete
      */
     template <typename T>
-    static pandora::StatusCode Delete(const pandora::Algorithm &algorithm, T *pT);
+    static pandora::StatusCode Delete(const pandora::Algorithm &algorithm, const T *const pT);
 
     /**
      *  @brief  Delete an object from a specified list
@@ -350,7 +393,7 @@ public:
      *  @param  listName name of the list containing the object
      */
     template <typename T>
-    static pandora::StatusCode Delete(const pandora::Algorithm &algorithm, T *pT, const std::string &listName);
+    static pandora::StatusCode Delete(const pandora::Algorithm &algorithm, const T *const pT, const std::string &listName);
 
 
     /* CaloHit-related functions */
@@ -363,7 +406,7 @@ public:
      *  @param  pT address of the calo hit, or list of calo hits, to add
      */
     template <typename T>
-    static pandora::StatusCode AddToCluster(const pandora::Algorithm &algorithm, pandora::Cluster *pCluster, T *pT);
+    static pandora::StatusCode AddToCluster(const pandora::Algorithm &algorithm, const pandora::Cluster *const pCluster, const T *const pT);
 
     /**
      *  @brief  Remove a calo hit from a cluster. Note this function will not remove the final calo hit from a cluster, and
@@ -373,7 +416,8 @@ public:
      *  @param  pCluster address of the cluster to modify
      *  @param  pCaloHit address of the hit to remove
      */
-    static pandora::StatusCode RemoveFromCluster(const pandora::Algorithm &algorithm, pandora::Cluster *pCluster, pandora::CaloHit *pCaloHit);
+    static pandora::StatusCode RemoveFromCluster(const pandora::Algorithm &algorithm, const pandora::Cluster *const pCluster,
+        const pandora::CaloHit *const pCaloHit);
 
     /**
      *  @brief  Add an isolated calo hit, or a list of isolated calo hits, to a cluster. An isolated calo hit is not counted as a
@@ -384,7 +428,7 @@ public:
      *  @param  pT address of the isolated calo hit, or list of isolated calo hits, to add
      */
     template <typename T>
-    static pandora::StatusCode AddIsolatedToCluster(const pandora::Algorithm &algorithm, pandora::Cluster *pCluster, T *pT);
+    static pandora::StatusCode AddIsolatedToCluster(const pandora::Algorithm &algorithm, const pandora::Cluster *const pCluster, const T *const pT);
 
     /**
      *  @brief  Remove an isolated calo hit from a cluster. Note this function will not remove the final calo hit from a cluster, and
@@ -394,7 +438,8 @@ public:
      *  @param  pCluster address of the cluster to modify
      *  @param  pCaloHit address of the isolated hit to remove
      */
-    static pandora::StatusCode RemoveIsolatedFromCluster(const pandora::Algorithm &algorithm, pandora::Cluster *pCluster, pandora::CaloHit *pCaloHit);
+    static pandora::StatusCode RemoveIsolatedFromCluster(const pandora::Algorithm &algorithm, const pandora::Cluster *const pCluster,
+        const pandora::CaloHit *const pCaloHit);
 
     /**
      *  @brief  Fragment a calo hit into two daughter calo hits, with a specified energy division
@@ -405,8 +450,8 @@ public:
      *  @param  pDaughterCaloHit1 to receive the address of daughter fragment 1
      *  @param  pDaughterCaloHit2 to receive the address of daughter fragment 2
      */
-    static pandora::StatusCode Fragment(const pandora::Algorithm &algorithm, pandora::CaloHit *pOriginalCaloHit, const float fraction1,
-        pandora::CaloHit *&pDaughterCaloHit1, pandora::CaloHit *&pDaughterCaloHit2);
+    static pandora::StatusCode Fragment(const pandora::Algorithm &algorithm, const pandora::CaloHit *const pOriginalCaloHit,
+        const float fraction1, const pandora::CaloHit *&pDaughterCaloHit1, const pandora::CaloHit *&pDaughterCaloHit2);
 
     /**
      *  @brief  Merge two calo hit fragments, originally from the same parent hit, to form a new calo hit
@@ -416,8 +461,8 @@ public:
      *  @param  pFragmentCaloHit2 address of calo hit fragment 2, which will be deleted
      *  @param  pMergedCaloHit to receive the address of the merged calo hit
      */
-    static pandora::StatusCode MergeFragments(const pandora::Algorithm &algorithm, pandora::CaloHit *pFragmentCaloHit1,
-        pandora::CaloHit *pFragmentCaloHit2, pandora::CaloHit *&pMergedCaloHit);
+    static pandora::StatusCode MergeFragments(const pandora::Algorithm &algorithm, const pandora::CaloHit *const pFragmentCaloHit1,
+        const pandora::CaloHit *const pFragmentCaloHit2, const pandora::CaloHit *&pMergedCaloHit);
 
 
     /* Track-related functions */
@@ -429,8 +474,8 @@ public:
      *  @param  pTrack address of the track
      *  @param  pCluster address of the cluster
      */
-    static pandora::StatusCode AddTrackClusterAssociation(const pandora::Algorithm &algorithm, pandora::Track *const pTrack,
-        pandora::Cluster *const pCluster);
+    static pandora::StatusCode AddTrackClusterAssociation(const pandora::Algorithm &algorithm, const pandora::Track *const pTrack,
+        const pandora::Cluster *const pCluster);
 
     /**
      *  @brief  Remove an association between a track and a cluster
@@ -439,8 +484,8 @@ public:
      *  @param  pTrack address of the track
      *  @param  pCluster address of the cluster
      */
-    static pandora::StatusCode RemoveTrackClusterAssociation(const pandora::Algorithm &algorithm, pandora::Track *const pTrack,
-        pandora::Cluster *const pCluster);
+    static pandora::StatusCode RemoveTrackClusterAssociation(const pandora::Algorithm &algorithm, const pandora::Track *const pTrack,
+        const pandora::Cluster *const pCluster);
 
     /**
      *  @brief  Remove all track-cluster associations from objects in the current track and cluster lists
@@ -476,8 +521,8 @@ public:
      *  @param  pClusterToEnlarge address of the cluster to enlarge
      *  @param  pClusterToDelete address of the cluster to delete
      */
-    static pandora::StatusCode MergeAndDeleteClusters(const pandora::Algorithm &algorithm, pandora::Cluster *pClusterToEnlarge,
-        pandora::Cluster *pClusterToDelete);
+    static pandora::StatusCode MergeAndDeleteClusters(const pandora::Algorithm &algorithm, const pandora::Cluster *const pClusterToEnlarge,
+        const pandora::Cluster *const pClusterToDelete);
 
     /**
      *  @brief  Merge two clusters from two specified lists, enlarging one cluster and deleting the second
@@ -488,8 +533,8 @@ public:
      *  @param  enlargeListName name of the list containing the cluster to enlarge
      *  @param  deleteListName name of the list containing the cluster to delete
      */
-    static pandora::StatusCode MergeAndDeleteClusters(const pandora::Algorithm &algorithm, pandora::Cluster *pClusterToEnlarge,
-        pandora::Cluster *pClusterToDelete, const std::string &enlargeListName, const std::string &deleteListName);
+    static pandora::StatusCode MergeAndDeleteClusters(const pandora::Algorithm &algorithm, const pandora::Cluster *const pClusterToEnlarge,
+        const pandora::Cluster *const pClusterToDelete, const std::string &enlargeListName, const std::string &deleteListName);
 
 
     /* Pfo-related functions */
@@ -502,7 +547,7 @@ public:
      *  @param  pCluster address of the cluster to add
      */
     template <typename T>
-    static pandora::StatusCode AddToPfo(const pandora::Algorithm &algorithm, pandora::ParticleFlowObject *pPfo, T *pT);
+    static pandora::StatusCode AddToPfo(const pandora::Algorithm &algorithm, const pandora::ParticleFlowObject *const pPfo, const T *const pT);
 
     /**
      *  @brief  Remove a cluster from a particle flow object. Note this function will not remove the final object (track or cluster)
@@ -513,7 +558,7 @@ public:
      *  @param  pCluster address of the cluster to remove
      */
     template <typename T>
-    static pandora::StatusCode RemoveFromPfo(const pandora::Algorithm &algorithm, pandora::ParticleFlowObject *pPfo, T *pT);
+    static pandora::StatusCode RemoveFromPfo(const pandora::Algorithm &algorithm, const pandora::ParticleFlowObject *const pPfo, const T *const pT);
 
     /**
      *  @brief  Set parent-daughter particle flow object relationship
@@ -522,8 +567,8 @@ public:
      *  @param  pParentPfo address of parent particle flow object
      *  @param  pDaughterPfo address of daughter particle flow object
      */
-    static pandora::StatusCode SetPfoParentDaughterRelationship(const pandora::Algorithm &algorithm, pandora::ParticleFlowObject *pParentPfo,
-        pandora::ParticleFlowObject *pDaughterPfo);
+    static pandora::StatusCode SetPfoParentDaughterRelationship(const pandora::Algorithm &algorithm, const pandora::ParticleFlowObject *const pParentPfo,
+        const pandora::ParticleFlowObject *const pDaughterPfo);
 
     /**
      *  @brief  Remove parent-daughter particle flow object relationship
@@ -532,8 +577,8 @@ public:
      *  @param  pParentPfo address of parent particle flow object
      *  @param  pDaughterPfo address of daughter particle flow object
      */
-    static pandora::StatusCode RemovePfoParentDaughterRelationship(const pandora::Algorithm &algorithm, pandora::ParticleFlowObject *pParentPfo,
-        pandora::ParticleFlowObject *pDaughterPfo);
+    static pandora::StatusCode RemovePfoParentDaughterRelationship(const pandora::Algorithm &algorithm, const pandora::ParticleFlowObject *const pParentPfo,
+        const pandora::ParticleFlowObject *const pDaughterPfo);
 
 
     /* Reclustering functions */

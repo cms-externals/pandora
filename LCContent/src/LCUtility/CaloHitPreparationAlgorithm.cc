@@ -59,7 +59,7 @@ StatusCode CaloHitPreparationAlgorithm::Run()
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-void CaloHitPreparationAlgorithm::CalculateCaloHitProperties(CaloHit *const pCaloHit, const OrderedCaloHitList &orderedCaloHitList) const
+void CaloHitPreparationAlgorithm::CalculateCaloHitProperties(const CaloHit *const pCaloHit, const OrderedCaloHitList &orderedCaloHitList) const
 {
     // Calculate number of adjacent pseudolayers to examine
     const unsigned int pseudoLayer(pCaloHit->GetPseudoLayer());
@@ -78,7 +78,7 @@ void CaloHitPreparationAlgorithm::CalculateCaloHitProperties(CaloHit *const pCal
         if (orderedCaloHitList.end() == adjacentPseudoLayerIter)
             continue;
 
-        CaloHitList *pCaloHitList = adjacentPseudoLayerIter->second;
+        const CaloHitList *const pCaloHitList = adjacentPseudoLayerIter->second;
 
         // IsIsolated flag
         if (isIsolated && (isolationMinLayer <= iPseudoLayer) && (isolationMaxLayer >= iPseudoLayer))
@@ -92,7 +92,9 @@ void CaloHitPreparationAlgorithm::CalculateCaloHitProperties(CaloHit *const pCal
         {
             if (MUON == pCaloHit->GetHitType())
             {
-                pCaloHit->SetPossibleMipFlag(true);
+                PandoraContentApi::CaloHit::Metadata metadata;
+                metadata.m_isPossibleMip = true;
+                PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pCaloHit, metadata));
                 continue;
             }
 
@@ -108,13 +110,19 @@ void CaloHitPreparationAlgorithm::CalculateCaloHitProperties(CaloHit *const pCal
             if ((pCaloHit->GetMipEquivalentEnergy() <= (m_mipLikeMipCut * angularCorrection) || pCaloHit->IsDigital()) &&
                 (m_mipMaxNearbyHits >= this->MipCountNearbyHits(pCaloHit, pCaloHitList)))
             {
-                pCaloHit->SetPossibleMipFlag(true);
+                PandoraContentApi::CaloHit::Metadata metadata;
+                metadata.m_isPossibleMip = true;
+                PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pCaloHit, metadata));
             }
         }
     }
 
     if (isIsolated)
-        pCaloHit->SetIsolatedFlag(true);
+    {
+        PandoraContentApi::CaloHit::Metadata metadata;
+        metadata.m_isIsolated = true;
+        PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::AlterMetadata(*this, pCaloHit, metadata));
+    }
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------

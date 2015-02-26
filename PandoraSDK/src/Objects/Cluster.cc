@@ -24,13 +24,12 @@ namespace pandora
 Cluster::Cluster(const PandoraContentApi::Cluster::Parameters &parameters) :
     m_nCaloHits(0),
     m_nPossibleMipHits(0),
+    m_nCaloHitsInOuterLayer(0),
     m_electromagneticEnergy(0),
     m_hadronicEnergy(0),
     m_isolatedElectromagneticEnergy(0),
     m_isolatedHadronicEnergy(0),
-    m_isFixedPhoton(false),
-    m_isFixedElectron(false),
-    m_isFixedMuon(false),
+    m_particleId(UNKNOWN_PARTICLE_TYPE),
     m_pTrackSeed(parameters.m_pTrack.IsInitialized() ? parameters.m_pTrack.Get() : NULL),
     m_initialDirection(0.f, 0.f, 0.f),
     m_isDirectionUpToDate(false),
@@ -59,16 +58,32 @@ Cluster::Cluster(const PandoraContentApi::Cluster::Parameters &parameters) :
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::AddCaloHit(CaloHit *const pCaloHit)
+StatusCode Cluster::AlterMetadata(const PandoraContentApi::Cluster::Metadata &metadata)
+{
+    if (metadata.m_particleId.IsInitialized())
+    {
+        m_isPhotonFast.Reset();
+        m_particleId = metadata.m_particleId.Get();
+    }
+
+    return STATUS_CODE_SUCCESS;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+StatusCode Cluster::AddCaloHit(const CaloHit *const pCaloHit)
 {
     PANDORA_RETURN_RESULT_IF(STATUS_CODE_SUCCESS, !=, m_orderedCaloHitList.Add(pCaloHit));
 
     this->ResetOutdatedProperties();
 
-    m_nCaloHits++;
+    ++m_nCaloHits;
 
     if (pCaloHit->IsPossibleMip())
-        m_nPossibleMipHits++;
+        ++m_nPossibleMipHits;
+
+    if (pCaloHit->IsInOuterSamplingLayer()) 
+        ++m_nCaloHitsInOuterLayer;
 
     const float x(pCaloHit->GetPositionVector().GetX());
     const float y(pCaloHit->GetPositionVector().GetY());
@@ -82,29 +97,19 @@ StatusCode Cluster::AddCaloHit(CaloHit *const pCaloHit)
 
     if ((m_orderedCaloHitList.end() != iter) && (iter->second->size() > 1))
     {
-        SimplePoint& mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-        mypoint.pos[0] += x;
-        mypoint.pos[1] += y;
-        mypoint.pos[2] += z;
-	++mypoint.nhits;
-	/*
-	  m_sumXByPseudoLayer[pseudoLayer] += x;
-	  m_sumYByPseudoLayer[pseudoLayer] += y;
-	  m_sumZByPseudoLayer[pseudoLayer] += z;
-	*/
+        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+        mypoint.m_xyzPositionSums[0] += x;
+        mypoint.m_xyzPositionSums[1] += y;
+        mypoint.m_xyzPositionSums[2] += z;
+        ++mypoint.m_nHits;
     }
     else
     {
-        SimplePoint& mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-	mypoint.pos[0] = x;
-        mypoint.pos[1] = y;
-        mypoint.pos[2] = z;
-	mypoint.nhits = 1;
-	/*
-        m_sumXByPseudoLayer[pseudoLayer] = x;
-        m_sumYByPseudoLayer[pseudoLayer] = y;
-        m_sumZByPseudoLayer[pseudoLayer] = z;
-	*/
+        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+        mypoint.m_xyzPositionSums[0] = x;
+        mypoint.m_xyzPositionSums[1] = y;
+        mypoint.m_xyzPositionSums[2] = z;
+        mypoint.m_nHits = 1;
     }
 
     if (!m_innerPseudoLayer.IsInitialized() || (pseudoLayer < m_innerPseudoLayer.Get()))
@@ -118,7 +123,7 @@ StatusCode Cluster::AddCaloHit(CaloHit *const pCaloHit)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::RemoveCaloHit(CaloHit *const pCaloHit)
+StatusCode Cluster::RemoveCaloHit(const CaloHit *const pCaloHit)
 {
     PANDORA_RETURN_RESULT_IF(STATUS_CODE_SUCCESS, !=, m_orderedCaloHitList.Remove(pCaloHit));
 
@@ -127,10 +132,13 @@ StatusCode Cluster::RemoveCaloHit(CaloHit *const pCaloHit)
 
     this->ResetOutdatedProperties();
 
-    m_nCaloHits--;
+    --m_nCaloHits;
 
-    if (pCaloHit->IsPossibleMip())
-        m_nPossibleMipHits--;
+    if ( pCaloHit->IsPossibleMip() )
+        --m_nPossibleMipHits;
+
+    if( pCaloHit->IsInOuterSamplingLayer() )
+        --m_nCaloHitsInOuterLayer;
 
     const float x(pCaloHit->GetPositionVector().GetX());
     const float y(pCaloHit->GetPositionVector().GetY());
@@ -143,25 +151,15 @@ StatusCode Cluster::RemoveCaloHit(CaloHit *const pCaloHit)
 
     if (m_orderedCaloHitList.end() != m_orderedCaloHitList.find(pseudoLayer))
     {
-        SimplePoint& mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-	mypoint.pos[0] -= x;
-	mypoint.pos[1] -= y;
-	mypoint.pos[2] -= z;
-	--mypoint.nhits;
-	/*
-        m_sumXByPseudoLayer[pseudoLayer] -= x;
-        m_sumYByPseudoLayer[pseudoLayer] -= y;
-        m_sumZByPseudoLayer[pseudoLayer] -= z;
-	*/
+        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+        mypoint.m_xyzPositionSums[0] -= x;
+        mypoint.m_xyzPositionSums[1] -= y;
+        mypoint.m_xyzPositionSums[2] -= z;
+        --mypoint.m_nHits;
     }
     else
     {
         m_sumXYZByPseudoLayer.erase(pseudoLayer);
-	/*
-        m_sumXByPseudoLayer.erase(pseudoLayer);
-        m_sumYByPseudoLayer.erase(pseudoLayer);
-        m_sumZByPseudoLayer.erase(pseudoLayer);
-	*/
     }
 
     if (pseudoLayer <= m_innerPseudoLayer.Get())
@@ -175,7 +173,7 @@ StatusCode Cluster::RemoveCaloHit(CaloHit *const pCaloHit)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::AddIsolatedCaloHit(CaloHit *const pCaloHit)
+StatusCode Cluster::AddIsolatedCaloHit(const CaloHit *const pCaloHit)
 {
     if (!m_isolatedCaloHitList.insert(pCaloHit).second)
         return STATUS_CODE_ALREADY_PRESENT;
@@ -193,7 +191,7 @@ StatusCode Cluster::AddIsolatedCaloHit(CaloHit *const pCaloHit)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::RemoveIsolatedCaloHit(CaloHit *const pCaloHit)
+StatusCode Cluster::RemoveIsolatedCaloHit(const CaloHit *const pCaloHit)
 {
     CaloHitList::iterator iter = m_isolatedCaloHitList.find(pCaloHit);
 
@@ -218,24 +216,18 @@ StatusCode Cluster::RemoveIsolatedCaloHit(CaloHit *const pCaloHit)
 const CartesianVector Cluster::GetCentroid(const unsigned int pseudoLayer) const
 {
     PointByPseudoLayerMap::const_iterator pointValueIter = m_sumXYZByPseudoLayer.find(pseudoLayer);
-    
-    if ( m_sumXYZByPseudoLayer.end() == pointValueIter )
+
+    if (m_sumXYZByPseudoLayer.end() == pointValueIter)
         throw StatusCodeException(STATUS_CODE_FAILURE);
 
-    if( 0 == pointValueIter->second.nhits )
-      throw StatusCodeException(STATUS_CODE_FAILURE);
+    const SimplePoint &mypoint = pointValueIter->second;
 
-    const SimplePoint& mypoint = pointValueIter->second;
+    if (0 == mypoint.m_nHits)
+        throw StatusCodeException(STATUS_CODE_FAILURE);
 
-    /*
-    ValueByPseudoLayerMap::const_iterator xValueIter = m_sumXByPseudoLayer.find(pseudoLayer);
-    ValueByPseudoLayerMap::const_iterator yValueIter = m_sumYByPseudoLayer.find(pseudoLayer);
-    ValueByPseudoLayerMap::const_iterator zValueIter = m_sumZByPseudoLayer.find(pseudoLayer);
-    */    
-
-    return CartesianVector(static_cast<float>(mypoint.pos[0] / mypoint.nhits), 
-			   static_cast<float>(mypoint.pos[1] / mypoint.nhits),
-			   static_cast<float>(mypoint.pos[2] / mypoint.nhits));
+    return CartesianVector(static_cast<float>(mypoint.m_xyzPositionSums[0] / static_cast<float>(mypoint.m_nHits)),
+        static_cast<float>(mypoint.m_xyzPositionSums[1] / static_cast<float>(mypoint.m_nHits)),
+        static_cast<float>(mypoint.m_xyzPositionSums[2] / static_cast<float>(mypoint.m_nHits)));
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -258,7 +250,7 @@ void Cluster::CalculateInitialDirection() const
     }
     
     CartesianVector initialDirection(0.f, 0.f, 0.f);
-    CaloHitList *pCaloHitList(m_orderedCaloHitList.begin()->second);
+    CaloHitList *const pCaloHitList(m_orderedCaloHitList.begin()->second);
 
     for (CaloHitList::const_iterator iter = pCaloHitList->begin(), iterEnd = pCaloHitList->end(); iter != iterEnd; ++iter)
         initialDirection += (*iter)->GetExpectedDirection();
@@ -308,8 +300,8 @@ void Cluster::CalculateLayerHitType(const unsigned int pseudoLayer, InputHitType
 
 void Cluster::PerformEnergyCorrections(const Pandora &pandora) const
 {
-    const EnergyCorrections *pEnergyCorrections(pandora.GetPlugins()->GetEnergyCorrections());
-    const ParticleId *pParticleId(pandora.GetPlugins()->GetParticleId());
+    const EnergyCorrections *const pEnergyCorrections(pandora.GetPlugins()->GetEnergyCorrections());
+    const ParticleId *const pParticleId(pandora.GetPlugins()->GetParticleId());
 
     float correctedElectromagneticEnergy(0.f), correctedHadronicEnergy(0.f), trackComparisonEnergy(0.f);
     PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, pEnergyCorrections->MakeEnergyCorrections(this, correctedElectromagneticEnergy,
@@ -345,7 +337,7 @@ void Cluster::CalculateFastPhotonFlag(const Pandora &pandora) const
 
 void Cluster::CalculateShowerStartLayer(const Pandora &pandora) const
 {
-    const ShowerProfilePlugin *pShowerProfilePlugin(pandora.GetPlugins()->GetShowerProfilePlugin());
+    const ShowerProfilePlugin *const pShowerProfilePlugin(pandora.GetPlugins()->GetShowerProfilePlugin());
 
     unsigned int showerStartLayer(std::numeric_limits<unsigned int>::max());
     pShowerProfilePlugin->CalculateShowerStartLayer(this, showerStartLayer);
@@ -358,7 +350,7 @@ void Cluster::CalculateShowerStartLayer(const Pandora &pandora) const
 
 void Cluster::CalculateShowerProfile(const Pandora &pandora) const
 {
-    const ShowerProfilePlugin *pShowerProfilePlugin(pandora.GetPlugins()->GetShowerProfilePlugin());
+    const ShowerProfilePlugin *const pShowerProfilePlugin(pandora.GetPlugins()->GetShowerProfilePlugin());
 
     float showerProfileStart(std::numeric_limits<float>::max()), showerProfileDiscrepancy(std::numeric_limits<float>::max());
     pShowerProfilePlugin->CalculateLongitudinalProfile(this, showerProfileStart, showerProfileDiscrepancy);
@@ -378,22 +370,17 @@ StatusCode Cluster::ResetProperties()
 
     m_nCaloHits = 0;
     m_nPossibleMipHits = 0;
+    m_nCaloHitsInOuterLayer = 0;
 
     m_sumXYZByPseudoLayer.clear();
-    /*
-      m_sumXByPseudoLayer.clear();
-      m_sumYByPseudoLayer.clear();
-      m_sumZByPseudoLayer.clear();
-    */
+
     m_electromagneticEnergy = 0;
     m_hadronicEnergy = 0;
 
     m_innerPseudoLayer.Reset();
     m_outerPseudoLayer.Reset();
 
-    m_isFixedPhoton = false;
-    m_isFixedElectron = false;
-    m_isFixedMuon = false;
+    m_particleId = UNKNOWN_PARTICLE_TYPE;
 
     this->ResetOutdatedProperties();
 
@@ -402,7 +389,26 @@ StatusCode Cluster::ResetProperties()
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::AddHitsFromSecondCluster(Cluster *const pCluster)
+void Cluster::ResetOutdatedProperties()
+{
+    m_isFitUpToDate = false;
+    m_isDirectionUpToDate = false;
+    m_initialDirection.SetValues(0.f, 0.f, 0.f);
+    m_fitToAllHitsResult.Reset();
+    m_showerStartLayer.Reset();
+    m_isPhotonFast.Reset();
+    m_showerProfileStart.Reset();
+    m_showerProfileDiscrepancy.Reset();
+    m_correctedElectromagneticEnergy.Reset();
+    m_correctedHadronicEnergy.Reset();
+    m_trackComparisonEnergy.Reset();
+    m_innerLayerHitType.Reset();
+    m_outerLayerHitType.Reset();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+StatusCode Cluster::AddHitsFromSecondCluster(const Cluster *const pCluster)
 {
     if (this == pCluster)
         return STATUS_CODE_NOT_ALLOWED;
@@ -421,6 +427,7 @@ StatusCode Cluster::AddHitsFromSecondCluster(Cluster *const pCluster)
 
     m_nCaloHits += pCluster->GetNCaloHits();
     m_nPossibleMipHits += pCluster->GetNPossibleMipHits();
+    m_nCaloHitsInOuterLayer += pCluster->GetNHitsInOuterLayer();
 
     m_electromagneticEnergy += pCluster->GetElectromagneticEnergy();
     m_hadronicEnergy += pCluster->GetHadronicEnergy();
@@ -431,33 +438,22 @@ StatusCode Cluster::AddHitsFromSecondCluster(Cluster *const pCluster)
         const unsigned int pseudoLayer(iter->first);
         OrderedCaloHitList::const_iterator currentIter = m_orderedCaloHitList.find(pseudoLayer);
 
+        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+        const SimplePoint &theirpoint = pCluster->m_sumXYZByPseudoLayer.at(pseudoLayer);
+
         if ((m_orderedCaloHitList.end() != currentIter) && (currentIter->second->size() > 1))
         {
-	    SimplePoint& mypoint    = m_sumXYZByPseudoLayer[pseudoLayer];
-	    const SimplePoint& theirpoint = pCluster->m_sumXYZByPseudoLayer[pseudoLayer];
-	    mypoint.pos[0] += theirpoint.pos[0];
-	    mypoint.pos[1] += theirpoint.pos[1];
-	    mypoint.pos[2] += theirpoint.pos[2];
-	    mypoint.nhits  += theirpoint.nhits;
-	    /*
-            m_sumXByPseudoLayer[pseudoLayer] += pCluster->m_sumXByPseudoLayer[pseudoLayer];
-            m_sumYByPseudoLayer[pseudoLayer] += pCluster->m_sumYByPseudoLayer[pseudoLayer];
-            m_sumZByPseudoLayer[pseudoLayer] += pCluster->m_sumZByPseudoLayer[pseudoLayer];
-	    */
+            mypoint.m_xyzPositionSums[0] += theirpoint.m_xyzPositionSums[0];
+            mypoint.m_xyzPositionSums[1] += theirpoint.m_xyzPositionSums[1];
+            mypoint.m_xyzPositionSums[2] += theirpoint.m_xyzPositionSums[2];
+            mypoint.m_nHits += theirpoint.m_nHits;
         }
         else
         {
-	    SimplePoint& mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-	    const SimplePoint& theirpoint = pCluster->m_sumXYZByPseudoLayer[pseudoLayer];
-	    mypoint.pos[0] = theirpoint.pos[0];
-	    mypoint.pos[1] = theirpoint.pos[1];
-	    mypoint.pos[2] = theirpoint.pos[2];
-	    mypoint.nhits  = theirpoint.nhits;
-	    /*
-            m_sumXByPseudoLayer[pseudoLayer] = pCluster->m_sumXByPseudoLayer[pseudoLayer];
-            m_sumYByPseudoLayer[pseudoLayer] = pCluster->m_sumYByPseudoLayer[pseudoLayer];
-            m_sumZByPseudoLayer[pseudoLayer] = pCluster->m_sumZByPseudoLayer[pseudoLayer];
-	    */
+            mypoint.m_xyzPositionSums[0] = theirpoint.m_xyzPositionSums[0];
+            mypoint.m_xyzPositionSums[1] = theirpoint.m_xyzPositionSums[1];
+            mypoint.m_xyzPositionSums[2] = theirpoint.m_xyzPositionSums[2];
+            mypoint.m_nHits = theirpoint.m_nHits;
         }
     }
 
@@ -469,7 +465,7 @@ StatusCode Cluster::AddHitsFromSecondCluster(Cluster *const pCluster)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::AddTrackAssociation(Track *const pTrack)
+StatusCode Cluster::AddTrackAssociation(const Track *const pTrack)
 {
     if (NULL == pTrack)
         return STATUS_CODE_INVALID_PARAMETER;
@@ -482,7 +478,7 @@ StatusCode Cluster::AddTrackAssociation(Track *const pTrack)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-StatusCode Cluster::RemoveTrackAssociation(Track *const pTrack)
+StatusCode Cluster::RemoveTrackAssociation(const Track *const pTrack)
 {
     TrackList::iterator iter = m_associatedTrackList.find(pTrack);
 
