@@ -85,30 +85,32 @@ StatusCode Cluster::AddCaloHit(const CaloHit *const pCaloHit)
     if (pCaloHit->IsInOuterSamplingLayer()) 
         ++m_nCaloHitsInOuterLayer;
 
-    const float x(pCaloHit->GetPositionVector().GetX());
-    const float y(pCaloHit->GetPositionVector().GetY());
-    const float z(pCaloHit->GetPositionVector().GetZ());
-
     m_electromagneticEnergy += pCaloHit->GetElectromagneticEnergy();
     m_hadronicEnergy += pCaloHit->GetHadronicEnergy();
 
     const unsigned int pseudoLayer(pCaloHit->GetPseudoLayer());
+    if( pseudoLayer >= m_sumXYZByPseudoLayer.size() ) m_sumXYZByPseudoLayer.resize(pseudoLayer+1);
+
     OrderedCaloHitList::const_iterator iter = m_orderedCaloHitList.find(pseudoLayer);
 
+	SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+	
     if ((m_orderedCaloHitList.end() != iter) && (iter->second->size() > 1))
     {
-        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-        mypoint.m_xyzPositionSums[0] += x;
-        mypoint.m_xyzPositionSums[1] += y;
-        mypoint.m_xyzPositionSums[2] += z;
+        mypoint.m_xyzPosition.SetValues(
+                                        (mypoint.m_xyzPosition.GetX()*mypoint.m_nHits + pCaloHit->GetPositionVector().GetX())/(mypoint.m_nHits+1),
+                                        (mypoint.m_xyzPosition.GetY()*mypoint.m_nHits + pCaloHit->GetPositionVector().GetY())/(mypoint.m_nHits+1),
+                                        (mypoint.m_xyzPosition.GetZ()*mypoint.m_nHits + pCaloHit->GetPositionVector().GetZ())/(mypoint.m_nHits+1)
+        );
         ++mypoint.m_nHits;
     }
     else
     {
-        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-        mypoint.m_xyzPositionSums[0] = x;
-        mypoint.m_xyzPositionSums[1] = y;
-        mypoint.m_xyzPositionSums[2] = z;
+        mypoint.m_xyzPosition.SetValues(
+                                        pCaloHit->GetPositionVector().GetX(),
+                                        pCaloHit->GetPositionVector().GetY(),
+                                        pCaloHit->GetPositionVector().GetZ()
+        );
         mypoint.m_nHits = 1;
     }
 
@@ -134,15 +136,11 @@ StatusCode Cluster::RemoveCaloHit(const CaloHit *const pCaloHit)
 
     --m_nCaloHits;
 
-    if ( pCaloHit->IsPossibleMip() )
+    if (pCaloHit->IsPossibleMip())
         --m_nPossibleMipHits;
 
-    if( pCaloHit->IsInOuterSamplingLayer() )
+    if (pCaloHit->IsInOuterSamplingLayer())
         --m_nCaloHitsInOuterLayer;
-
-    const float x(pCaloHit->GetPositionVector().GetX());
-    const float y(pCaloHit->GetPositionVector().GetY());
-    const float z(pCaloHit->GetPositionVector().GetZ());
 
     m_electromagneticEnergy -= pCaloHit->GetElectromagneticEnergy();
     m_hadronicEnergy -= pCaloHit->GetHadronicEnergy();
@@ -152,14 +150,22 @@ StatusCode Cluster::RemoveCaloHit(const CaloHit *const pCaloHit)
     if (m_orderedCaloHitList.end() != m_orderedCaloHitList.find(pseudoLayer))
     {
         SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
-        mypoint.m_xyzPositionSums[0] -= x;
-        mypoint.m_xyzPositionSums[1] -= y;
-        mypoint.m_xyzPositionSums[2] -= z;
+        mypoint.m_xyzPosition.SetValues(
+                                        (mypoint.m_xyzPosition.GetX()*mypoint.m_nHits - pCaloHit->GetPositionVector().GetX())/(mypoint.m_nHits-1),
+                                        (mypoint.m_xyzPosition.GetY()*mypoint.m_nHits - pCaloHit->GetPositionVector().GetY())/(mypoint.m_nHits-1),
+                                        (mypoint.m_xyzPosition.GetZ()*mypoint.m_nHits - pCaloHit->GetPositionVector().GetZ())/(mypoint.m_nHits-1)
+        );
         --mypoint.m_nHits;
     }
     else
     {
-        m_sumXYZByPseudoLayer.erase(pseudoLayer);
+        SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
+		mypoint.m_xyzPosition.SetValues(
+                                        0.f,
+                                        0.f,
+                                        0.f
+        );
+        mypoint.m_nHits = 0;
     }
 
     if (pseudoLayer <= m_innerPseudoLayer.Get())
@@ -213,21 +219,17 @@ StatusCode Cluster::RemoveIsolatedCaloHit(const CaloHit *const pCaloHit)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-const CartesianVector Cluster::GetCentroid(const unsigned int pseudoLayer) const
+const CartesianVector& Cluster::GetCentroid(const unsigned int pseudoLayer) const
 {
-    PointByPseudoLayerMap::const_iterator pointValueIter = m_sumXYZByPseudoLayer.find(pseudoLayer);
-
-    if (m_sumXYZByPseudoLayer.end() == pointValueIter)
+    if ( m_sumXYZByPseudoLayer.size() <= pseudoLayer )
         throw StatusCodeException(STATUS_CODE_FAILURE);
 
-    const SimplePoint &mypoint = pointValueIter->second;
+    const SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
 
     if (0 == mypoint.m_nHits)
         throw StatusCodeException(STATUS_CODE_FAILURE);
-
-    return CartesianVector(static_cast<float>(mypoint.m_xyzPositionSums[0] / static_cast<float>(mypoint.m_nHits)),
-        static_cast<float>(mypoint.m_xyzPositionSums[1] / static_cast<float>(mypoint.m_nHits)),
-        static_cast<float>(mypoint.m_xyzPositionSums[2] / static_cast<float>(mypoint.m_nHits)));
+	
+	return mypoint.m_xyzPosition;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -372,7 +374,7 @@ StatusCode Cluster::ResetProperties()
     m_nPossibleMipHits = 0;
     m_nCaloHitsInOuterLayer = 0;
 
-    m_sumXYZByPseudoLayer.clear();
+    m_sumXYZByPseudoLayer.resize(0);
 
     m_electromagneticEnergy = 0;
     m_hadronicEnergy = 0;
@@ -438,21 +440,27 @@ StatusCode Cluster::AddHitsFromSecondCluster(const Cluster *const pCluster)
         const unsigned int pseudoLayer(iter->first);
         OrderedCaloHitList::const_iterator currentIter = m_orderedCaloHitList.find(pseudoLayer);
 
+        if( pseudoLayer >=  m_sumXYZByPseudoLayer.size() )  m_sumXYZByPseudoLayer.resize(pseudoLayer+1);
+
         SimplePoint &mypoint = m_sumXYZByPseudoLayer[pseudoLayer];
         const SimplePoint &theirpoint = pCluster->m_sumXYZByPseudoLayer.at(pseudoLayer);
 
         if ((m_orderedCaloHitList.end() != currentIter) && (currentIter->second->size() > 1))
         {
-            mypoint.m_xyzPositionSums[0] += theirpoint.m_xyzPositionSums[0];
-            mypoint.m_xyzPositionSums[1] += theirpoint.m_xyzPositionSums[1];
-            mypoint.m_xyzPositionSums[2] += theirpoint.m_xyzPositionSums[2];
+			mypoint.m_xyzPosition.SetValues(
+                                            (mypoint.m_xyzPosition.GetX()*mypoint.m_nHits + theirpoint.m_xyzPosition.GetX()*theirpoint.m_nHits)/(mypoint.m_nHits+theirpoint.m_nHits),
+                                            (mypoint.m_xyzPosition.GetY()*mypoint.m_nHits + theirpoint.m_xyzPosition.GetY()*theirpoint.m_nHits)/(mypoint.m_nHits+theirpoint.m_nHits),
+                                            (mypoint.m_xyzPosition.GetZ()*mypoint.m_nHits + theirpoint.m_xyzPosition.GetZ()*theirpoint.m_nHits)/(mypoint.m_nHits+theirpoint.m_nHits)
+			);
             mypoint.m_nHits += theirpoint.m_nHits;
         }
         else
         {
-            mypoint.m_xyzPositionSums[0] = theirpoint.m_xyzPositionSums[0];
-            mypoint.m_xyzPositionSums[1] = theirpoint.m_xyzPositionSums[1];
-            mypoint.m_xyzPositionSums[2] = theirpoint.m_xyzPositionSums[2];
+            mypoint.m_xyzPosition.SetValues(
+                                            theirpoint.m_xyzPosition.GetX(),
+                                            theirpoint.m_xyzPosition.GetY(),
+                                            theirpoint.m_xyzPosition.GetZ()
+			);
             mypoint.m_nHits = theirpoint.m_nHits;
         }
     }

@@ -77,7 +77,7 @@ public:
      * 
      *  @return The number of hits in this cluster in the outermost sampling layer
      */
-    unsigned GetNHitsInOuterLayer() const;
+    unsigned int GetNHitsInOuterLayer() const;
 
     /**
      *  @brief  Get the sum of electromagnetic energy measures of all constituent calo hits, units GeV
@@ -149,7 +149,7 @@ public:
      * 
      *  @return The unweighted centroid, returned by value
      */
-    const CartesianVector GetCentroid(const unsigned int pseudoLayer) const;
+    const CartesianVector& GetCentroid(const unsigned int pseudoLayer) const;
 
     /**
      *  @brief  Get the initial direction of the cluster
@@ -401,11 +401,13 @@ private:
     class SimplePoint
     {
     public:
-        double                  m_xyzPositionSums[3];           ///< The sum of the x, y and z hit positions in the pseudo layer
+        CartesianVector         m_xyzPosition;                  ///< The average x, y and z hit positions in the pseudo layer
         unsigned int            m_nHits;                        ///< The number of hits in the pseudo layer
+		//default constructor because CartesianVector doesn't have one
+		SimplePoint() : m_xyzPosition(0.f,0.f,0.f), m_nHits(0) {}
     };
 
-    typedef std::map<unsigned int, SimplePoint> PointByPseudoLayerMap;///< The point by pseudo layer typedef
+    typedef std::vector<SimplePoint> PointByPseudoLayerMap;     ///< The point by pseudo layer typedef
     typedef std::map<HitType, float> HitTypeToEnergyMap;        ///< The hit type to energy map typedef
 
     OrderedCaloHitList          m_orderedCaloHitList;           ///< The ordered calo hit list
@@ -413,7 +415,7 @@ private:
 
     unsigned int                m_nCaloHits;                    ///< The number of calo hits
     unsigned int                m_nPossibleMipHits;             ///< The number of calo hits that have been flagged as possible mip hits
-    unsigned int                m_nCaloHitsInOuterLayer;        ///< keep track of the number of calo hits in the outermost layers
+    unsigned int                m_nCaloHitsInOuterLayer;        ///< Keep track of the number of calo hits in the outermost layers
 
     double                      m_electromagneticEnergy;        ///< The sum of electromagnetic energy measures of constituent calo hits, units GeV
     double                      m_hadronicEnergy;               ///< The sum of hadronic energy measures of constituent calo hits, units GeV
@@ -497,9 +499,11 @@ inline float Cluster::GetMipFraction() const
     return ((0 != m_nCaloHits) ? static_cast<float> (m_nPossibleMipHits) / static_cast<float> (m_nCaloHits) : 0);
 }
 
-inline unsigned Cluster::GetNHitsInOuterLayer() const
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline unsigned int Cluster::GetNHitsInOuterLayer() const
 {
-  return m_nCaloHitsInOuterLayer;
+    return m_nCaloHitsInOuterLayer;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------

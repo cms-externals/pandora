@@ -24,7 +24,7 @@ template <typename PARAMETERS, typename METADATA, typename OBJECT>
 pandora::StatusCode PandoraContentApi::ObjectCreationHelper<PARAMETERS, METADATA, OBJECT>::Create(const pandora::Algorithm &algorithm,
     const Parameters &parameters, const Object *&pObject)
 {
-    return algorithm.GetPandora().GetPandoraContentApiImpl()->CreateObject(parameters, pObject);
+    return algorithm.GetPandora().GetPandoraContentApiImpl()->Create(parameters, pObject);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -389,10 +389,11 @@ pandora::StatusCode PandoraContentApi::EndReclustering(const pandora::Algorithm 
 template pandora::StatusCode PandoraContentApi::AlterMetadata<pandora::CaloHit, PandoraContentApi::CaloHit::Metadata>(const pandora::Algorithm &, const pandora::CaloHit *, const PandoraContentApi::CaloHit::Metadata &);
 template pandora::StatusCode PandoraContentApi::AlterMetadata<pandora::Cluster, PandoraContentApi::Cluster::Metadata>(const pandora::Algorithm &, const pandora::Cluster *, const PandoraContentApi::Cluster::Metadata &);
 template pandora::StatusCode PandoraContentApi::AlterMetadata<pandora::ParticleFlowObject, PandoraContentApi::ParticleFlowObject::Metadata>(const pandora::Algorithm &, const pandora::ParticleFlowObject *, const PandoraContentApi::ParticleFlowObject::Metadata &);
+template pandora::StatusCode PandoraContentApi::AlterMetadata<pandora::Vertex, PandoraContentApi::Vertex::Metadata>(const pandora::Algorithm &, const pandora::Vertex *, const PandoraContentApi::Vertex::Metadata &);
 
 template class PandoraContentApi::ObjectCreationHelper<PandoraContentApi::Cluster::Parameters, PandoraContentApi::Cluster::Metadata, const pandora::Cluster>;
 template class PandoraContentApi::ObjectCreationHelper<PandoraContentApi::ParticleFlowObject::Parameters, PandoraContentApi::ParticleFlowObject::Metadata, const pandora::ParticleFlowObject>;
-template class PandoraContentApi::ObjectCreationHelper<PandoraContentApi::Vertex::Parameters, void, const pandora::Vertex>;
+template class PandoraContentApi::ObjectCreationHelper<PandoraContentApi::Vertex::Parameters, PandoraContentApi::Vertex::Metadata, const pandora::Vertex>;
 template class PandoraContentApi::ObjectCreationHelper<PandoraApi::MCParticle::Parameters, void, const pandora::MCParticle>;
 template class PandoraContentApi::ObjectCreationHelper<PandoraApi::Track::Parameters, void, const pandora::Track>;
 template class PandoraContentApi::ObjectCreationHelper<PandoraApi::RectangularCaloHit::Parameters, PandoraContentApi::CaloHit::Metadata, const pandora::CaloHit>;
@@ -471,8 +472,11 @@ template pandora::StatusCode PandoraContentApi::CreateTemporaryListAndSetCurrent
 template bool PandoraContentApi::IsAvailable<pandora::CaloHit>(const pandora::Algorithm &, const pandora::CaloHit *);
 template bool PandoraContentApi::IsAvailable<pandora::CaloHitList>(const pandora::Algorithm &, const pandora::CaloHitList *);
 template bool PandoraContentApi::IsAvailable<pandora::Track>(const pandora::Algorithm &, const pandora::Track *);
+template bool PandoraContentApi::IsAvailable<pandora::TrackList>(const pandora::Algorithm &, const pandora::TrackList *);
 template bool PandoraContentApi::IsAvailable<pandora::Cluster>(const pandora::Algorithm &, const pandora::Cluster *);
+template bool PandoraContentApi::IsAvailable<pandora::ClusterList>(const pandora::Algorithm &, const pandora::ClusterList *);
 template bool PandoraContentApi::IsAvailable<pandora::Vertex>(const pandora::Algorithm &, const pandora::Vertex *);
+template bool PandoraContentApi::IsAvailable<pandora::VertexList>(const pandora::Algorithm &, const pandora::VertexList *);
 
 template pandora::StatusCode PandoraContentApi::Delete<pandora::Cluster>(const pandora::Algorithm &, const pandora::Cluster *);
 template pandora::StatusCode PandoraContentApi::Delete<pandora::ClusterList>(const pandora::Algorithm &, const pandora::ClusterList *);
