@@ -207,11 +207,11 @@ StatusCode MainFragmentRemovalAlgorithm::GetChargedClusterContactMap(bool &isFir
             if (pParentCluster->GetAssociatedTrackList().empty())
                 continue;
 
-            ChargedClusterContact chargedClusterContact(this->GetPandora(), pDaughterCluster, pParentCluster, m_contactParameters);
+            const ChargedClusterContact chargedClusterContact(this->GetPandora(), pDaughterCluster, pParentCluster, m_contactParameters);
 
             if (this->PassesClusterContactCuts(chargedClusterContact))
             {
-	        chargedClusterContactMap[pDaughterCluster].push_back(std::move(chargedClusterContact));
+                chargedClusterContactMap[pDaughterCluster].push_back(chargedClusterContact);
             }
         }
     }

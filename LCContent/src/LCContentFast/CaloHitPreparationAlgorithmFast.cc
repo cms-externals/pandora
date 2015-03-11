@@ -26,18 +26,13 @@ CaloHitPreparationAlgorithm::CaloHitPreparationAlgorithm() :
     m_isolationMaxNearbyHits(2),
     m_mipLikeMipCut(5.f),
     m_mipNCellsForNearbyHit(2),
-    m_mipMaxNearbyHits(1),
-    m_hitNodes4D(new std::vector<HitKDNode4D>),
-    m_hitsKdTree4D(new HitKDTree4D)
-{
+    m_mipMaxNearbyHits(1){
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 CaloHitPreparationAlgorithm::~CaloHitPreparationAlgorithm()
 {
-    delete m_hitNodes4D;
-    delete m_hitsKdTree4D;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -68,6 +63,8 @@ StatusCode CaloHitPreparationAlgorithm::Run()
         return statusCodeException.GetStatusCode();
     }
 
+	m_hitsKdTree4D.clear();
+	
     return STATUS_CODE_SUCCESS;
 }
 
@@ -75,11 +72,12 @@ StatusCode CaloHitPreparationAlgorithm::Run()
 
 void CaloHitPreparationAlgorithm::InitializeKDTree(const CaloHitList *const pCaloHitList) 
 {
-    m_hitsKdTree4D->clear();
-    m_hitNodes4D->clear();
-    KDTreeTesseract hitsBoundingRegion4D = fill_and_bound_4d_kd_tree(this, *pCaloHitList, *m_hitNodes4D, true);
-    m_hitsKdTree4D->build(*m_hitNodes4D, hitsBoundingRegion4D);
-    m_hitNodes4D->clear();
+    m_hitsKdTree4D.clear();
+    m_hitNodes4D.clear();
+    KDTreeTesseract hitsBoundingRegion4D = fill_and_bound_4d_kd_tree(this, *pCaloHitList, m_hitNodes4D, true);
+    m_hitsKdTree4D.build(m_hitNodes4D, hitsBoundingRegion4D);
+    m_hitNodes4D.clear();
+    std::vector<HitKDNode4D>().swap(m_hitNodes4D);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -165,7 +163,7 @@ unsigned int CaloHitPreparationAlgorithm::IsolationCountNearbyHits(unsigned int 
     KDTreeTesseract searchRegionHits = build_4d_kd_search_region(pCaloHit, searchDistance, searchDistance, searchDistance, searchLayer);
 
     std::vector<HitKDNode4D> found;
-    m_hitsKdTree4D->search(searchRegionHits, found);
+    m_hitsKdTree4D.search(searchRegionHits, found);
 
     for (const auto &hit : found)
     {
@@ -206,7 +204,7 @@ unsigned int CaloHitPreparationAlgorithm::MipCountNearbyHits(unsigned int search
     KDTreeTesseract searchRegionHits = build_4d_kd_search_region(pCaloHit, searchDistance, searchDistance, searchDistance, searchLayer);
 
     std::vector<HitKDNode4D> found;
-    m_hitsKdTree4D->search(searchRegionHits, found);
+    m_hitsKdTree4D.search(searchRegionHits, found);
 
     for (const auto &hit : found)
     {

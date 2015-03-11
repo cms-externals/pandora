@@ -39,6 +39,7 @@ public:
 };
 
 typedef std::vector<const pandora::CaloHit *> CustomSortedCaloHitList;
+typedef std::unordered_map<const pandora::Cluster *, const pandora::CaloHit * > ClusterListWithNearestHit;
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -81,7 +82,7 @@ private:
      */
     pandora::StatusCode SeedClustersWithTracks(const pandora::TrackList *const pTrackList, pandora::ClusterVector &clusterVector);
 
-    typedef std::map<const pandora::Cluster*, const pandora::ClusterFitResult> ClusterFitResultMap;
+    typedef std::unordered_map<const pandora::Cluster*, const pandora::ClusterFitResult> ClusterFitResultMap;
     typedef KDTreeLinkerAlgo<const pandora::CaloHit*, 4> HitKDTree;
     typedef KDTreeNodeInfoT<const pandora::CaloHit*, 4> HitKDNode;
     typedef KDTreeLinkerAlgo<const pandora::Track*, 3> TrackKDTree;
@@ -128,7 +129,7 @@ private:
      *  @param  genericDistance to receive the generic distance
      */
     pandora::StatusCode GetGenericDistanceToHit(const pandora::Cluster *const pCluster, const pandora::CaloHit *const pCaloHit,
-        const unsigned int searchLayer, const ClusterFitResultMap &clusterFitResultMap, float &genericDistance) const;
+        const unsigned int searchLayer, const ClusterFitResultMap &clusterFitResultMap, float &genericDistance, const pandora::CaloHit *const nearestHit, bool checkedNN) const;
 
     /**
      *  @brief  Get the generic distance between a calo hit and a cluster in the same pseudo layer
@@ -138,7 +139,7 @@ private:
      *  @param  distance to receive the distance
      */
     pandora::StatusCode GetDistanceToHitInSameLayer(const pandora::CaloHit *const pCaloHit, const pandora::CaloHitList *const pCaloHitList,
-        float &distance) const;
+        float &distance, const pandora::CaloHit *const nearestHit, bool checkedNN) const;
 
     /**
      *  @brief  Get the smallest cone approach distance between a calo hit and all the hits in a cluster, using a specified

@@ -52,7 +52,8 @@ ConeClusteringAlgorithm::ConeClusteringAlgorithm() :
     m_fitSuccessChi2Cut1(5.0f),
     m_fitSuccessDotProductCut2(0.50f),
     m_fitSuccessChi2Cut2(2.5f),
-    m_mipTrackChi2Cut(2.5f)
+    m_mipTrackChi2Cut(2.5f),
+    m_firstLayer(1)
 {
 }
 
@@ -112,8 +113,10 @@ StatusCode ConeClusteringAlgorithm::Run()
     //reset our kd trees and maps if everything turned out well
     m_tracksKdTree.clear();
     m_hitsKdTree.clear();
-    m_hitsToClusters.clear();
-    m_tracksToClusters.clear();
+	m_hitsToClusters.clear();
+	std::unordered_map<const pandora::CaloHit*, const pandora::Cluster*>().swap(m_hitsToClusters);
+	m_tracksToClusters.clear();
+	std::unordered_map<const pandora::Track*, const pandora::Cluster*>().swap(m_tracksToClusters);
 
     return STATUS_CODE_SUCCESS;
 }
@@ -131,6 +134,7 @@ StatusCode ConeClusteringAlgorithm::InitializeKDTrees(const TrackList *const pTr
         KDTreeCube tracksBoundingRegion = fill_and_bound_3d_kd_tree(this, *pTrackList, m_trackNodes);
         m_tracksKdTree.build(m_trackNodes,tracksBoundingRegion);
         m_trackNodes.clear();
+		std::vector<TrackKDNode>().swap(m_trackNodes);
     }
 
     // make sure the hit kd tree is ready
@@ -139,6 +143,7 @@ StatusCode ConeClusteringAlgorithm::InitializeKDTrees(const TrackList *const pTr
     KDTreeTesseract hitsBoundingRegion = fill_and_bound_4d_kd_tree(this,*pCaloHitList,m_hitNodes);
     m_hitsKdTree.build(m_hitNodes,hitsBoundingRegion);
     m_hitNodes.clear();
+	std::vector<HitKDNode>().swap(m_hitNodes);
 
     return STATUS_CODE_SUCCESS;
 }
@@ -250,6 +255,10 @@ StatusCode ConeClusteringAlgorithm::FindHitsInPreviousLayers(unsigned int pseudo
 {
     const float maxTrackSeedSeparation = std::sqrt(m_maxTrackSeedSeparation2);
 
+    std::vector<HitKDNode> found_hits;
+    std::vector<TrackKDNode> found_tracks;
+    ClusterList nearby_clusters;
+
     for (CustomSortedCaloHitList::iterator iter = pCustomSortedCaloHitList->begin(); iter != pCustomSortedCaloHitList->end();)
     {
         const CaloHit *const pCaloHit = *iter;
@@ -274,10 +283,8 @@ StatusCode ConeClusteringAlgorithm::FindHitsInPreviousLayers(unsigned int pseudo
 
             // need to reorganize this to use a kd-tree. On rechits comprising clusters we are mutating
             // goal -> determine search distances for KD-tree from cut values and associated scalings
-            ClusterList nearby_clusters;
             // search for tracks that would satisfy the search criteria in GetGenericDistanceToHit()
             KDTreeCube searchRegionTks = build_3d_kd_search_region(pCaloHit, largestAllowedDistanceForSearch, largestAllowedDistanceForSearch, largestAllowedDistanceForSearch);
-            std::vector<TrackKDNode> found_tracks;
             m_tracksKdTree.search(searchRegionTks,found_tracks);
             for (auto &track : found_tracks )
             {
@@ -291,7 +298,6 @@ StatusCode ConeClusteringAlgorithm::FindHitsInPreviousLayers(unsigned int pseudo
 
             // now search for hits-in-clusters that would also satisfy the criteria
             KDTreeTesseract searchRegionHits = build_4d_kd_search_region(pCaloHit, largestAllowedDistanceForSearch, largestAllowedDistanceForSearch, largestAllowedDistanceForSearch, searchLayer);
-            std::vector<HitKDNode> found_hits;
             m_hitsKdTree.search(searchRegionHits,found_hits);
             for (auto &hit : found_hits)
             {
@@ -314,7 +320,7 @@ StatusCode ConeClusteringAlgorithm::FindHitsInPreviousLayers(unsigned int pseudo
                 const float clusterEnergy(pCluster->GetHadronicEnergy());
 
                 PANDORA_RETURN_RESULT_IF_AND_IF(STATUS_CODE_SUCCESS, STATUS_CODE_UNCHANGED, !=, this->GetGenericDistanceToHit(pCluster,
-                    pCaloHit, searchLayer, clusterFitResultMap, genericDistance));
+                    pCaloHit, searchLayer, clusterFitResultMap, genericDistance, nullptr, false));
 
                 if ((genericDistance < smallestGenericDistance) ||
                     ((genericDistance == smallestGenericDistance) && (clusterEnergy > bestClusterEnergy)))
@@ -324,6 +330,7 @@ StatusCode ConeClusteringAlgorithm::FindHitsInPreviousLayers(unsigned int pseudo
                     smallestGenericDistance = genericDistance;
                 }
             }
+            nearby_clusters.clear();
 
             // Add best hit found after completing examination of a stepback layer
             if ((0 == m_clusterFormationStrategy) && (nullptr != pBestCluster))
@@ -371,6 +378,11 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
     //tactical cache hits -> hits
     std::unordered_multimap<const CaloHit*, const CaloHit*> hitsToHitsLocal;
 
+    //pull out result caches to help keep memory locality
+    std::vector<TrackKDNode> found_tracks;
+    std::vector<HitKDNode> found_hits;
+    ClusterListWithNearestHit nearby_clusters;
+
     while (!available_hits_in_layer.empty())
     {
         bool clustersModified = true;
@@ -395,7 +407,6 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                 float bestClusterEnergy(0.f);
                 float smallestGenericDistance(m_genericDistanceCut);
 
-                ClusterList nearby_clusters;
                 // search for tracks that would satisfy the search criteria in GetGenericDistanceToHit()
                 auto track_assc_cache = hitsToTracksLocal.find(pCaloHit);
                 if (track_assc_cache != hitsToTracksLocal.end())
@@ -406,14 +417,17 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                         auto assc_cluster = m_tracksToClusters.find(itr->second);
                         if(assc_cluster != m_tracksToClusters.end())
                         {
-                            nearby_clusters.insert(assc_cluster->second);
+                            auto nearby_iter = nearby_clusters.find(assc_cluster->second);
+							if(nearby_iter == nearby_clusters.end()){
+								//no nearest hit from track search
+								nearby_clusters.emplace(assc_cluster->second,nullptr);
+							}
                         }
                     }
                 }
                 else
                 {
                     KDTreeCube searchRegionTks = build_3d_kd_search_region(pCaloHit, track_search_width, track_search_width, track_search_width);
-                    std::vector<TrackKDNode> found_tracks;
                     m_tracksKdTree.search(searchRegionTks,found_tracks);
                     for (auto &track : found_tracks)
                     {
@@ -421,11 +435,16 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                         auto assc_cluster = m_tracksToClusters.find(track.data);
                         if (assc_cluster != m_tracksToClusters.end())
                         {
-                            nearby_clusters.insert(assc_cluster->second);
+                            auto nearby_iter = nearby_clusters.find(assc_cluster->second);
+							if(nearby_iter == nearby_clusters.end()){
+								//no nearest hit from track search
+								nearby_clusters.emplace(assc_cluster->second,nullptr);
+							}
                         }
                     }
                     found_tracks.clear();
                 }
+				
                 // now search for hits-in-clusters that would also satisfy the criteria
                 auto hits_assc_cache = hitsToHitsLocal.find(pCaloHit);
                 if (hits_assc_cache != hitsToHitsLocal.end())
@@ -436,14 +455,31 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                         auto assc_cluster = m_hitsToClusters.find(itr->second);
                         if( assc_cluster != m_hitsToClusters.end() )
                         {
-                            nearby_clusters.insert(assc_cluster->second);
+                            auto nearby_iter = nearby_clusters.find(assc_cluster->second);
+							if(nearby_iter == nearby_clusters.end()){
+								//assign the current hit as the nearest hit
+								nearby_clusters.emplace(assc_cluster->second,itr->second);
+							}
+							else if(nearby_iter->second == nullptr){
+								//overwrite null hit with current hit
+								nearby_iter->second = itr->second;
+							}
+							else {
+								//check if the current hit is nearer
+								//should the min distance be cached with the nearest hit?
+								const CartesianVector &hitPosition(pCaloHit->GetPositionVector());
+								const CartesianVector &nearPosition(nearby_iter->second->GetPositionVector());
+								const CartesianVector &testPosition(itr->second->GetPositionVector());
+								if((hitPosition-testPosition).GetMagnitudeSquared() < (hitPosition-nearPosition).GetMagnitudeSquared()){
+									nearby_iter->second = itr->second;
+								}
+							}
                         }
                     }
                 }
                 else
                 {
                     KDTreeTesseract searchRegionHits = build_4d_kd_search_region(pCaloHit, hit_search_width, hit_search_width, hit_search_width, pseudoLayer);
-                    std::vector<HitKDNode> found_hits;
                     m_hitsKdTree.search(searchRegionHits,found_hits);
                     for (auto &hit : found_hits)
                     {
@@ -451,23 +487,41 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                         auto assc_cluster = m_hitsToClusters.find(hit.data);
                         if (assc_cluster != m_hitsToClusters.end())
                         {
-                            nearby_clusters.insert(assc_cluster->second);
+                            auto nearby_iter = nearby_clusters.find(assc_cluster->second);
+							if(nearby_iter == nearby_clusters.end()){
+								//assign the current hit as the nearest hit
+								nearby_clusters.emplace(assc_cluster->second,hit.data);
+							}
+							else if(nearby_iter->second == nullptr){
+								//overwrite null hit with current hit
+								nearby_iter->second = hit.data;
+							}
+							else {
+								//check if the current hit is nearer
+								//should the min distance be cached with the nearest hit?
+								const CartesianVector &hitPosition(pCaloHit->GetPositionVector());
+								const CartesianVector &nearPosition(nearby_iter->second->GetPositionVector());
+								const CartesianVector &testPosition(hit.data->GetPositionVector());
+								if((hitPosition-testPosition).GetMagnitudeSquared() < (hitPosition-nearPosition).GetMagnitudeSquared()){
+									nearby_iter->second = hit.data;
+								}
+							}
                         }
                     }
                     found_hits.clear();
                 }
 
                 // See if hit should be associated with any existing clusters
-                for (ClusterList::iterator clusterIter = nearby_clusters.begin(), clusterIterEnd = nearby_clusters.end();
+                for (auto clusterIter = nearby_clusters.begin(), clusterIterEnd = nearby_clusters.end();
                     clusterIter != clusterIterEnd; ++clusterIter)
                 {
-                    const Cluster *const pCluster = *clusterIter;
+                    const Cluster *const pCluster = clusterIter->first;
                     float genericDistance(std::numeric_limits<float>::max());
                     const float clusterEnergy(pCluster->GetHadronicEnergy());
-
+					
                     PANDORA_RETURN_RESULT_IF_AND_IF(STATUS_CODE_SUCCESS, STATUS_CODE_UNCHANGED, !=, this->GetGenericDistanceToHit(pCluster,
-                        pCaloHit, pseudoLayer, clusterFitResultMap, genericDistance));
-
+                        pCaloHit, pseudoLayer, clusterFitResultMap, genericDistance, clusterIter->second,true));
+						
                     if ((genericDistance < smallestGenericDistance) || ((genericDistance == smallestGenericDistance) && (clusterEnergy > bestClusterEnergy)))
                     {
                         pBestCluster = pCluster;
@@ -475,6 +529,7 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
                         smallestGenericDistance = genericDistance;
                     }
                 }
+                nearby_clusters.clear();
 
                 if (nullptr != pBestCluster)
                 {
@@ -513,9 +568,9 @@ StatusCode ConeClusteringAlgorithm::FindHitsInSameLayer(unsigned int pseudoLayer
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 StatusCode ConeClusteringAlgorithm::GetGenericDistanceToHit(const Cluster *const pCluster, const CaloHit *const pCaloHit, const unsigned int searchLayer,
-    const ClusterFitResultMap &clusterFitResultMap, float &genericDistance) const
+    const ClusterFitResultMap &clusterFitResultMap, float &genericDistance, const CaloHit *const nearestHit, bool checkedNN) const
 {
-    const unsigned int firstLayer = m_firstLayer;
+	const unsigned int firstLayer = m_firstLayer;
 
     // Use position of track projection at calorimeter. Proceed only if projection is reasonably compatible with calo hit
     if (((searchLayer == 0) || (searchLayer < firstLayer)) && pCluster->IsTrackSeeded())
@@ -557,7 +612,7 @@ StatusCode ConeClusteringAlgorithm::GetGenericDistanceToHit(const Cluster *const
 
         if (searchLayer == pCaloHit->GetPseudoLayer())
         {
-            return this->GetDistanceToHitInSameLayer(pCaloHit, pClusterCaloHitList, genericDistance);
+            return this->GetDistanceToHitInSameLayer(pCaloHit, pClusterCaloHitList, genericDistance, nearestHit, checkedNN);
         }
 
         // Measurement using initial cluster direction
@@ -631,7 +686,7 @@ StatusCode ConeClusteringAlgorithm::GetGenericDistanceToHit(const Cluster *const
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 StatusCode ConeClusteringAlgorithm::GetDistanceToHitInSameLayer(const CaloHit *const pCaloHit, const CaloHitList *const pCaloHitList,
-    float &distance) const
+    float &distance, const CaloHit *const nearestHit, bool checkedNN) const
 {
     const float dCut ((PandoraContentApi::GetGeometry(*this)->GetHitTypeGranularity(pCaloHit->GetHitType()) <= FINE) ?
         (m_sameLayerPadWidthsFine * pCaloHit->GetCellLengthScale()) :
@@ -645,11 +700,9 @@ StatusCode ConeClusteringAlgorithm::GetDistanceToHitInSameLayer(const CaloHit *c
     bool hitFound(false);
     float smallestDistanceSquared(std::numeric_limits<float>::max());
     const float rDCutSquared(1.f / (dCut * dCut));
-
-    for (CaloHitList::const_iterator iter = pCaloHitList->begin(), iterEnd = pCaloHitList->end(); iter != iterEnd; ++iter)
-    {
-        const CaloHit *const pHitInCluster = *iter;
-        const CartesianVector &hitInClusterPosition(pHitInCluster->GetPositionVector());
+	
+	if(checkedNN && nearestHit != nullptr){ //no need to loop if the nearest hit is already known
+        const CartesianVector &hitInClusterPosition(nearestHit->GetPositionVector());
         const float separationSquared((hitPosition - hitInClusterPosition).GetMagnitudeSquared());
         const float hitDistanceSquared(separationSquared * rDCutSquared);
 
@@ -657,8 +710,24 @@ StatusCode ConeClusteringAlgorithm::GetDistanceToHitInSameLayer(const CaloHit *c
         {
             smallestDistanceSquared = hitDistanceSquared;
             hitFound = true;
+        }		
+	}
+	else if(!checkedNN) { //loop if NN wasn't previously checked
+        for (CaloHitList::const_iterator iter = pCaloHitList->begin(), iterEnd = pCaloHitList->end(); iter != iterEnd; ++iter)
+        {
+            const CaloHit *const pHitInCluster = *iter;
+            const CartesianVector &hitInClusterPosition(pHitInCluster->GetPositionVector());
+            const float separationSquared((hitPosition - hitInClusterPosition).GetMagnitudeSquared());
+            const float hitDistanceSquared(separationSquared * rDCutSquared);
+        
+            if (hitDistanceSquared < smallestDistanceSquared)
+            {
+                smallestDistanceSquared = hitDistanceSquared;
+                hitFound = true;
+            }
         }
-    }
+	}
+	//in case that NN was checked and nearestHit is null, the loop will never be worthwhile, just skip it
 
     if (!hitFound)
         return STATUS_CODE_UNCHANGED;
