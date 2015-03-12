@@ -11,8 +11,6 @@
 #include "Pandora/PandoraInternal.h"
 #include "Pandora/StatusCodes.h"
 
-#include <memory>
-
 namespace lc_content
 {
 
@@ -34,7 +32,7 @@ public:
         float           m_minCosOpeningAngle;           ///< Min opening angle between two clusters to perform contact hit comparisons
         float           m_distanceThreshold;            ///< Number of calorimeter cell-widths used to identify cluster contact layers
     };
-    
+
     /**
      *  @brief  Constructor
      * 
@@ -44,8 +42,8 @@ public:
      *  @param  parameters the cluster contact parameters
      */
     ClusterContact(const pandora::Pandora &pandora, const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster,
-		   const Parameters &parameters);
-    
+        const Parameters &parameters);
+
     /**
      *  @brief  Get the address of the daughter candidate cluster
      * 
@@ -111,7 +109,7 @@ protected:
      *  @param  pParentCluster address of the parent candidate cluster
      *  @param  parameters the cluster contact parameters
      */
-    void HitDistanceComparison(const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster, const Parameters &parameters);    
+    void HitDistanceComparison(const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster, const Parameters &parameters);
 
     const pandora::Cluster     *m_pDaughterCluster;         ///< Address of the daughter candidate cluster
     const pandora::Cluster     *m_pParentCluster;           ///< Address of the parent candidate cluster

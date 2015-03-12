@@ -36,10 +36,7 @@ SoftClusterMergingAlgorithm::SoftClusterMergingAlgorithm() :
     m_closestDistanceCut2(250.f),
     m_innerLayerCut2(40),
     m_maxClusterDistanceFine(100.f),
-    m_maxClusterDistanceCoarse(250.f),
-    m_hitsToHitsCacheMap(new HitsToHitsCacheMap),
-    m_hitNodes3D(new std::vector<HitKDNode3D>),
-    m_hitsKdTree3D(new HitKDTree3D)
+    m_maxClusterDistanceCoarse(250.f)
 {
 }
 
@@ -47,9 +44,6 @@ SoftClusterMergingAlgorithm::SoftClusterMergingAlgorithm() :
 
 SoftClusterMergingAlgorithm::~SoftClusterMergingAlgorithm()
 {
-    delete m_hitsToHitsCacheMap;
-    delete m_hitNodes3D;
-    delete m_hitsKdTree3D;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -90,6 +84,10 @@ StatusCode SoftClusterMergingAlgorithm::Run()
             quickUnion.Unite(index, parentIndex);
         }
     }
+	
+	m_hitsKdTree3D.clear();
+	m_hitsToHitsCacheMap.clear();
+	HitsToHitsCacheMap().swap(m_hitsToHitsCacheMap);
 
     return STATUS_CODE_SUCCESS;
 }
@@ -152,12 +150,13 @@ void SoftClusterMergingAlgorithm::GetInputCaloHits(const ClusterVector &clusterV
 
 void SoftClusterMergingAlgorithm::InitializeKDTree(const CaloHitList *const pCaloHitList) 
 {
-    m_hitsToHitsCacheMap->clear();
-    m_hitsKdTree3D->clear();
-    m_hitNodes3D->clear();
-    KDTreeCube hitsBoundingRegion3D = fill_and_bound_3d_kd_tree(this, *pCaloHitList, *m_hitNodes3D, true);
-    m_hitsKdTree3D->build(*m_hitNodes3D, hitsBoundingRegion3D);
-    m_hitNodes3D->clear();
+    m_hitsToHitsCacheMap.clear();
+    m_hitsKdTree3D.clear();
+    m_hitNodes3D.clear();
+    KDTreeCube hitsBoundingRegion3D = fill_and_bound_3d_kd_tree(this, *pCaloHitList, m_hitNodes3D, true);
+    m_hitsKdTree3D.build(m_hitNodes3D, hitsBoundingRegion3D);
+    m_hitNodes3D.clear();
+	std::vector<HitKDNode3D>().swap(m_hitNodes3D);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -201,7 +200,7 @@ bool SoftClusterMergingAlgorithm::IsSoftCluster(const Cluster *const pDaughterCl
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 int SoftClusterMergingAlgorithm::FindBestParentCluster(const ClusterVector &clusterVector, const HitToClusterMap &hitToClusterMap,
-    QuickUnion &quickUnion, const Cluster *const pDaughterCluster, const CaloHitList &daughterHits, float &closestDistance) const
+    QuickUnion &quickUnion, const Cluster *const pDaughterCluster, const CaloHitList &daughterHits, float &closestDistance)
 {
     int bestParentIndex(-1);
     closestDistance = std::numeric_limits<float>::max();
@@ -217,9 +216,9 @@ int SoftClusterMergingAlgorithm::FindBestParentCluster(const ClusterVector &clus
         const CartesianVector &positionVectorI(pCaloHitI->GetPositionVector());
         CaloHitList nearby_hits;
 
-        if (m_hitsToHitsCacheMap->count(pCaloHitI))
+        if (m_hitsToHitsCacheMap.count(pCaloHitI))
         {
-            const auto range = m_hitsToHitsCacheMap->equal_range(pCaloHitI);
+            const auto range = m_hitsToHitsCacheMap.equal_range(pCaloHitI);
 
             for (auto rangeIter = range.first; rangeIter != range.second; ++rangeIter)
                 nearby_hits.insert(rangeIter->second);
@@ -228,11 +227,11 @@ int SoftClusterMergingAlgorithm::FindBestParentCluster(const ClusterVector &clus
         {
             KDTreeCube searchRegionHits = build_3d_kd_search_region(pCaloHitI, searchDistance, searchDistance, searchDistance);
             std::vector<HitKDNode3D> found;
-            m_hitsKdTree3D->search(searchRegionHits, found);
+            m_hitsKdTree3D.search(searchRegionHits, found);
 
             for (const auto &hit : found)
             {
-                m_hitsToHitsCacheMap->emplace(pCaloHitI, hit.data);
+                m_hitsToHitsCacheMap.emplace(pCaloHitI, hit.data);
                 nearby_hits.insert(hit.data);
             }
         }

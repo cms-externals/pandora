@@ -11,6 +11,8 @@
 #include "Pandora/PandoraInputTypes.h"
 #include "Pandora/PandoraInternal.h"
 
+#include <utility>
+
 namespace lc_content
 {
 
@@ -75,6 +77,15 @@ public:
      *  @param  pRhs address of second track
      */
     static bool SortTracksByEnergy(const pandora::Track *const pLhs, const pandora::Track *const pRhs);
+	
+	/**
+     *  @brief  Sort CaloHits by distance to cluster centroid
+     * 
+     *  @param  pLhs address of first hit & distance
+     *  @param  pRhs address of second hit & distance
+     */
+    static bool SortHitsByRadiusToCentroid(const std::pair<const pandora::CaloHit *, float>& pLhs, const std::pair<const pandora::CaloHit *, float>& pRhs);
+	
 };
 
 } // namespace lc_content

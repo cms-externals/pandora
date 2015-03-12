@@ -1,5 +1,5 @@
 /**
- *  @file   LCContent/include/LCHelpers/FragmentRemovalHelper.h
+ *  @file   LCContent/include/LCContentFast/FragmentRemovalHelper.h
  * 
  *  @brief  Header file for the fragment removal helper class.
  * 
@@ -8,9 +8,10 @@
 #ifndef LC_FRAGMENT_REMOVAL_HELPER_FAST_H
 #define LC_FRAGMENT_REMOVAL_HELPER_FAST_H 1
 
+#include "LCContentFast/KDTreeLinkerAlgoT.h"
+
 #include "Pandora/PandoraInternal.h"
 #include "Pandora/StatusCodes.h"
-#include "LCContentFast/KDTreeLinkerAlgoT.h"
 
 #include <memory>
 
@@ -23,8 +24,9 @@ namespace lc_content_fast
 class ClusterContact
 {
 public:
-    typedef KDTreeLinkerAlgo<const pandora::CaloHit*,3> HitKDTree;
-    typedef KDTreeNodeInfoT<const pandora::CaloHit*,3> HitKDNode;
+    typedef KDTreeLinkerAlgo<const pandora::CaloHit*, 3> HitKDTree;
+    typedef KDTreeNodeInfoT<const pandora::CaloHit*, 3> HitKDNode;
+
     /**
      *  @brief  Parameters class
      */
@@ -37,7 +39,7 @@ public:
         float           m_minCosOpeningAngle;           ///< Min opening angle between two clusters to perform contact hit comparisons
         float           m_distanceThreshold;            ///< Number of calorimeter cell-widths used to identify cluster contact layers
     };
-    
+
     /**
      *  @brief  Constructor
      * 
@@ -47,10 +49,19 @@ public:
      *  @param  parameters the cluster contact parameters
      */
     ClusterContact(const pandora::Pandora &pandora, const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster,
-		   const Parameters &parameters);
+        const Parameters &parameters);
 
+    /**
+     *  @brief  Constructor
+     * 
+     *  @param  pandora the associated pandora instance
+     *  @param  pDaughterCluster address of the daughter candidate cluster
+     *  @param  pParentCluster address of the parent candidate cluster
+     *  @param  parameters the cluster contact parameters
+     *  @param  hit_tree
+     */
     ClusterContact(const pandora::Pandora &pandora, const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster,
-		   const Parameters &parameters, const std::unique_ptr<HitKDTree>&);
+        const Parameters &parameters, const std::unique_ptr<HitKDTree> &hit_tree);
 
     /**
      *  @brief  Get the address of the daughter candidate cluster
@@ -118,7 +129,18 @@ protected:
      *  @param  parameters the cluster contact parameters
      */
     void HitDistanceComparison(const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster, const Parameters &parameters);
-    void HitDistanceComparison(const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster, const Parameters &parameters, const std::unique_ptr<ClusterContact::HitKDTree>&);
+
+    /**
+     *  @brief  Compare hits in daughter cluster with those in parent cluster to calculate minimum hit separation
+     *          and close hit fractions. Calculate these properties in a single loop, for efficiency.
+     * 
+     *  @param  pDaughterCluster address of the daughter candidate cluster
+     *  @param  pParentCluster address of the parent candidate cluster
+     *  @param  parameters the cluster contact parameters
+     *  @param  hit_tree
+     */
+    void HitDistanceComparison(const pandora::Cluster *const pDaughterCluster, const pandora::Cluster *const pParentCluster, const Parameters &parameters,
+        const std::unique_ptr<ClusterContact::HitKDTree> &hit_tree);
 
     const pandora::Cluster     *m_pDaughterCluster;         ///< Address of the daughter candidate cluster
     const pandora::Cluster     *m_pParentCluster;           ///< Address of the parent candidate cluster
@@ -291,6 +313,6 @@ inline float ClusterContact::GetConeFraction1() const
     return m_coneFraction1;
 }
 
-} // namespace lc_content
+} // namespace lc_content_fast
 
-#endif // #ifndef LC_FRAGMENT_REMOVAL_HELPER_H
+#endif // #ifndef LC_FRAGMENT_REMOVAL_HELPER_FAST_H

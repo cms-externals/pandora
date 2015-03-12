@@ -9,12 +9,10 @@
 #define LC_CALO_HIT_PREPARATION_ALGORITHM_FAST_H 1
 
 #include "Pandora/Algorithm.h"
+#include "LCContentFast/KDTreeLinkerAlgoT.h"
 
 namespace lc_content_fast
 {
-
-template<typename, unsigned int> class KDTreeLinkerAlgo;
-template<typename, unsigned int> class KDTreeNodeInfoT;
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -99,8 +97,8 @@ private:
     unsigned int    m_mipNCellsForNearbyHit;            ///< Separation (in calo cells) for hits to be declared "nearby"
     unsigned int    m_mipMaxNearbyHits;                 ///< Max number of "nearby" hits for hit to be flagged as possible mip
 
-    std::vector<HitKDNode4D>   *m_hitNodes4D;           ///< nodes for the KD tree (used for filling)
-    HitKDTree4D                *m_hitsKdTree4D;         ///< the kd-tree itself, 4D in x,y,z,pseudolayer
+    std::vector<HitKDNode4D>   m_hitNodes4D;           ///< nodes for the KD tree (used for filling)
+    HitKDTree4D                m_hitsKdTree4D;         ///< the kd-tree itself, 4D in x,y,z,pseudolayer
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------

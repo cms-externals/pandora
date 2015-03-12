@@ -42,7 +42,15 @@ private:
      *  @param  parameters the vertex parameters
      *  @param  pVertex to receive the address of the vertex created
      */
-    StatusCode CreateVertex(const PandoraContentApi::Vertex::Parameters &parameters, const Vertex *&pVertex);
+    StatusCode Create(const PandoraContentApi::Vertex::Parameters &parameters, const Vertex *&pVertex);
+
+    /**
+     *  @brief  Alter the metadata information stored in a vertex
+     * 
+     *  @param  pVertex address of the vertex to modify
+     *  @param  metaData the metadata (only populated metadata fields will be propagated to the object)
+     */
+    StatusCode AlterMetadata(const Vertex *const pVertex, const PandoraContentApi::Vertex::Metadata &metadata) const;
 
     /**
      *  @brief  Is a vertex, or a list of vertices, available to add to a particle flow object

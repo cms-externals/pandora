@@ -342,7 +342,7 @@ void ClusterContact::HitDistanceComparison(const Cluster *const pDaughterCluster
     // Calculate all hit distance properties in a single loop, for efficiency
     unsigned int nCloseHits1(0), nCloseHits2(0);
     float minDistanceSquared(std::numeric_limits<float>::max());
-        
+
     const OrderedCaloHitList &orderedCaloHitListI(pDaughterCluster->GetOrderedCaloHitList());
     const OrderedCaloHitList &orderedCaloHitListJ(pParentCluster->GetOrderedCaloHitList());
 
@@ -350,25 +350,25 @@ void ClusterContact::HitDistanceComparison(const Cluster *const pDaughterCluster
     for (OrderedCaloHitList::const_iterator iterI = orderedCaloHitListI.begin(), iterIEnd = orderedCaloHitListI.end(); iterI != iterIEnd; ++iterI)
     {
         for (CaloHitList::const_iterator hitIterI = iterI->second->begin(), hitIterIEnd = iterI->second->end(); hitIterI != hitIterIEnd; ++hitIterI)
-        {   
+        {
             bool isCloseHit1(false), isCloseHit2(false);
             const CartesianVector &positionVectorI((*hitIterI)->GetPositionVector());
 
             // Compare each hit in daughter cluster with those in parent cluster
             for (OrderedCaloHitList::const_iterator iterJ = orderedCaloHitListJ.begin(), iterJEnd = orderedCaloHitListJ.end(); iterJ != iterJEnd; ++iterJ)
-            {	      
+            {
                 for (CaloHitList::const_iterator hitIterJ = iterJ->second->begin(), hitIterJEnd = iterJ->second->end(); hitIterJ != hitIterJEnd; ++hitIterJ)
                 {
                     const float distanceSquared((positionVectorI - (*hitIterJ)->GetPositionVector()).GetMagnitudeSquared());
 
                     if (!isCloseHit1 && (distanceSquared < closeHitDistance1Squared))
-		        isCloseHit1 = true;
+                        isCloseHit1 = true;
 
                     if (!isCloseHit2 && (distanceSquared < closeHitDistance2Squared))
                         isCloseHit2 = true;
 
-                    if (distanceSquared < minDistanceSquared) 
-		        minDistanceSquared = distanceSquared;				
+                    if (distanceSquared < minDistanceSquared)
+                        minDistanceSquared = distanceSquared;
                 }
             }
 
